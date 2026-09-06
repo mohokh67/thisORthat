@@ -216,6 +216,46 @@ export function useBoard(boardId: string, identity: Identity | null): UseBoard {
     [patch, pushToast, load],
   )
 
+  /** Optimistically merges `changes` into one column and writes them. No-ops if
+   *  the column is gone. */
+  const patchColumn = useCallback(
+    (columnId: string, changes: Partial<Column>, write: () => Promise<unknown>) => {
+      if (!entitiesRef.current?.columns.some((column) => column.id === columnId)) {
+        return
+      }
+      optimisticMutate(
+        (current) => ({
+          ...current,
+          columns: current.columns.map((column) =>
+            column.id === columnId ? { ...column, ...changes } : column,
+          ),
+        }),
+        write,
+      )
+    },
+    [optimisticMutate],
+  )
+
+  /** Optimistically merges `changes` into one note and writes them. No-ops if
+   *  the note is gone. */
+  const patchNote = useCallback(
+    (noteId: string, changes: Partial<Note>, write: () => Promise<unknown>) => {
+      if (!entitiesRef.current?.notes.some((note) => note.id === noteId)) {
+        return
+      }
+      optimisticMutate(
+        (current) => ({
+          ...current,
+          notes: current.notes.map((note) =>
+            note.id === noteId ? { ...note, ...changes } : note,
+          ),
+        }),
+        write,
+      )
+    },
+    [optimisticMutate],
+  )
+
   const addColumn = useCallback(() => {
     const entities = entitiesRef.current
     if (!entities) {
@@ -246,17 +286,9 @@ export function useBoard(boardId: string, identity: Identity | null): UseBoard {
       if (!existing || !trimmed || trimmed === existing.title) {
         return
       }
-      optimisticMutate(
-        (current) => ({
-          ...current,
-          columns: current.columns.map((column) =>
-            column.id === columnId ? { ...column, title: trimmed } : column,
-          ),
-        }),
-        () => renameColumnRow(columnId, trimmed),
-      )
+      patchColumn(columnId, { title: trimmed }, () => renameColumnRow(columnId, trimmed))
     },
-    [optimisticMutate],
+    [patchColumn],
   )
 
   const recolorColumn = useCallback(
@@ -265,17 +297,9 @@ export function useBoard(boardId: string, identity: Identity | null): UseBoard {
       if (!existing || existing.color === color) {
         return
       }
-      optimisticMutate(
-        (current) => ({
-          ...current,
-          columns: current.columns.map((column) =>
-            column.id === columnId ? { ...column, color } : column,
-          ),
-        }),
-        () => recolorColumnRow(columnId, color),
-      )
+      patchColumn(columnId, { color }, () => recolorColumnRow(columnId, color))
     },
-    [optimisticMutate],
+    [patchColumn],
   )
 
   const moveColumn = useCallback(
@@ -315,17 +339,9 @@ export function useBoard(boardId: string, identity: Identity | null): UseBoard {
         others.map((column) => column.position),
         clamped,
       )
-      optimisticMutate(
-        (current) => ({
-          ...current,
-          columns: current.columns.map((column) =>
-            column.id === columnId ? { ...column, position } : column,
-          ),
-        }),
-        () => moveColumnRow(columnId, position),
-      )
+      patchColumn(columnId, { position }, () => moveColumnRow(columnId, position))
     },
-    [optimisticMutate],
+    [optimisticMutate, patchColumn],
   )
 
   const deleteColumn = useCallback(
@@ -410,24 +426,13 @@ export function useBoard(boardId: string, identity: Identity | null): UseBoard {
   const editNote = useCallback(
     (noteId: string, text: string) => {
       const existing = entitiesRef.current?.notes.find((note) => note.id === noteId)
-      if (!existing) {
-        return
-      }
       const trimmed = text.trim()
-      if (!trimmed || trimmed === existing.text) {
+      if (!existing || !trimmed || trimmed === existing.text) {
         return
       }
-      optimisticMutate(
-        (current) => ({
-          ...current,
-          notes: current.notes.map((note) =>
-            note.id === noteId ? { ...note, text: trimmed } : note,
-          ),
-        }),
-        () => updateNoteText(noteId, trimmed),
-      )
+      patchNote(noteId, { text: trimmed }, () => updateNoteText(noteId, trimmed))
     },
-    [optimisticMutate],
+    [patchNote],
   )
 
   const cyclePriority = useCallback(
@@ -437,17 +442,9 @@ export function useBoard(boardId: string, identity: Identity | null): UseBoard {
         return
       }
       const priority = nextPriority(existing.priority)
-      optimisticMutate(
-        (current) => ({
-          ...current,
-          notes: current.notes.map((note) =>
-            note.id === noteId ? { ...note, priority } : note,
-          ),
-        }),
-        () => updateNotePriority(noteId, priority),
-      )
+      patchNote(noteId, { priority }, () => updateNotePriority(noteId, priority))
     },
-    [optimisticMutate],
+    [patchNote],
   )
 
   const deleteNote = useCallback(

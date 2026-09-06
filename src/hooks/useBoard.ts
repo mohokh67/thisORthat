@@ -1,20 +1,30 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { fetchBoard, renameBoard as renameBoardRow } from '../lib/boards'
 import {
   addColumn as insertColumn,
-  fetchBoard,
-  renameBoard as renameBoardRow,
-} from '../lib/boards'
+  deleteColumn as deleteColumnRow,
+  moveColumn as moveColumnRow,
+  recolorColumn as recolorColumnRow,
+  reindexColumns,
+  renameColumn as renameColumnRow,
+} from '../lib/columns'
 import {
   createNote as insertNote,
   deleteNote as deleteNoteRow,
   updateNoteText,
 } from '../lib/notes'
 import { joinBoard } from '../lib/participants'
-import { positionAtEnd, positionAtStart } from '../lib/position'
+import {
+  isPrecisionExhausted,
+  positionAtEnd,
+  positionAtStart,
+  positionForIndex,
+  reindexed,
+} from '../lib/position'
 import { reconcile, type BoardEntities } from '../lib/reconcile'
 import { subscribeToBoard, type ConnectionStatus } from '../lib/realtime'
 import type { Identity } from '../lib/identity'
-import type { Board, Column, Note } from '../lib/types'
+import type { Board, Column, ColumnColor, Note } from '../lib/types'
 import { useToasts, type Toast } from '../components/useToasts'
 
 type Status = 'loading' | 'not-found' | 'error' | 'ready'
@@ -32,6 +42,10 @@ export interface UseBoard {
   connection: ConnectionStatus
   toasts: Toast[]
   addColumn: () => void
+  renameColumn: (columnId: string, title: string) => void
+  recolorColumn: (columnId: string, color: ColumnColor | null) => void
+  moveColumn: (columnId: string, targetIndex: number) => void
+  deleteColumn: (columnId: string) => void
   renameBoard: (title: string) => void
   addNote: (columnId: string, text: string) => void
   editNote: (noteId: string, text: string) => void
@@ -212,6 +226,113 @@ export function useBoard(boardId: string, identity: Identity | null): UseBoard {
     )
   }, [boardId, optimisticMutate])
 
+  const renameColumn = useCallback(
+    (columnId: string, title: string) => {
+      const existing = entitiesRef.current?.columns.find((column) => column.id === columnId)
+      const trimmed = title.trim()
+      if (!existing || !trimmed || trimmed === existing.title) {
+        return
+      }
+      optimisticMutate(
+        (current) => ({
+          ...current,
+          columns: current.columns.map((column) =>
+            column.id === columnId ? { ...column, title: trimmed } : column,
+          ),
+        }),
+        () => renameColumnRow(columnId, trimmed),
+      )
+    },
+    [optimisticMutate],
+  )
+
+  const recolorColumn = useCallback(
+    (columnId: string, color: ColumnColor | null) => {
+      const existing = entitiesRef.current?.columns.find((column) => column.id === columnId)
+      if (!existing || existing.color === color) {
+        return
+      }
+      optimisticMutate(
+        (current) => ({
+          ...current,
+          columns: current.columns.map((column) =>
+            column.id === columnId ? { ...column, color } : column,
+          ),
+        }),
+        () => recolorColumnRow(columnId, color),
+      )
+    },
+    [optimisticMutate],
+  )
+
+  const moveColumn = useCallback(
+    (columnId: string, targetIndex: number) => {
+      const entities = entitiesRef.current
+      if (!entities) {
+        return
+      }
+      const sorted = [...entities.columns].sort(byPosition)
+      const from = sorted.findIndex((column) => column.id === columnId)
+      if (from === -1 || from === targetIndex) {
+        return
+      }
+      const others = sorted.filter((column) => column.id !== columnId)
+      const clamped = Math.max(0, Math.min(targetIndex, others.length))
+      const before = others[clamped - 1]?.position
+      const after = others[clamped]?.position
+
+      if (before !== undefined && after !== undefined && isPrecisionExhausted(before, after)) {
+        const reordered = [...others]
+        reordered.splice(clamped, 0, sorted[from])
+        const positions = reindexed(reordered.length)
+        const next = reordered.map((column, index) => ({ ...column, position: positions[index] }))
+        optimisticMutate(
+          (current) => ({
+            ...current,
+            columns: current.columns.map(
+              (column) => next.find((n) => n.id === column.id) ?? column,
+            ),
+          }),
+          () => reindexColumns(next.map((c) => ({ id: c.id, position: c.position }))),
+        )
+        return
+      }
+
+      const position = positionForIndex(
+        others.map((column) => column.position),
+        clamped,
+      )
+      optimisticMutate(
+        (current) => ({
+          ...current,
+          columns: current.columns.map((column) =>
+            column.id === columnId ? { ...column, position } : column,
+          ),
+        }),
+        () => moveColumnRow(columnId, position),
+      )
+    },
+    [optimisticMutate],
+  )
+
+  const deleteColumn = useCallback(
+    (columnId: string) => {
+      const existing = entitiesRef.current?.columns.find((column) => column.id === columnId)
+      if (!existing) {
+        return
+      }
+      optimisticMutate(
+        (current) => ({
+          ...current,
+          columns: current.columns.filter((column) => column.id !== columnId),
+          notes: current.notes.filter((note) => note.columnId !== columnId),
+        }),
+        () => deleteColumnRow(columnId),
+      )
+    },
+    [optimisticMutate],
+  )
+
   const renameBoard = useCallback(
     (title: string) => {
       const entities = entitiesRef.current
@@ -327,6 +448,10 @@ export function useBoard(boardId: string, identity: Identity | null): UseBoard {
     connection,
     toasts,
     addColumn,
+    renameColumn,
+    recolorColumn,
+    moveColumn,
+    deleteColumn,
     renameBoard,
     addNote,
     editNote,

@@ -28,3 +28,18 @@ export function isPrecisionExhausted(before: number, after: number): boolean {
 export function reindexed(count: number): number[] {
   return Array.from({ length: count }, (_, index) => index * POSITION_GAP)
 }
+
+/**
+ * The position for an item inserted at `targetIndex` among `others` (the sorted
+ * positions of the *other* items). Callers should reindex the list when
+ * `isPrecisionExhausted` reports the flanking positions are too close.
+ */
+export function positionForIndex(others: number[], targetIndex: number): number {
+  if (targetIndex <= 0) {
+    return positionAtStart(others[0] ?? null)
+  }
+  if (targetIndex >= others.length) {
+    return positionAtEnd(others[others.length - 1] ?? null)
+  }
+  return positionBetween(others[targetIndex - 1], others[targetIndex])
+}

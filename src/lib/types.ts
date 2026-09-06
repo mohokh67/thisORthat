@@ -8,6 +8,16 @@ export type ColumnColor =
   | 'blue'
   | 'purple'
 
+/** The fixed accent-colour presets offered in the column colour picker. */
+export const COLUMN_COLORS: readonly ColumnColor[] = [
+  'gray',
+  'red',
+  'orange',
+  'green',
+  'blue',
+  'purple',
+]
+
 export type Priority = 'none' | 'low' | 'medium' | 'high'
 
 export interface ColumnSeed {

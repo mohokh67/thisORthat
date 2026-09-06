@@ -4,6 +4,7 @@ import {
   positionAtEnd,
   positionAtStart,
   positionBetween,
+  positionForIndex,
   reindexed,
 } from './position'
 
@@ -58,5 +59,29 @@ describe('reindexed', () => {
 
   it('returns evenly-spaced ordered positions', () => {
     expect(reindexed(4)).toEqual([0, 1, 2, 3])
+  })
+})
+
+describe('positionForIndex', () => {
+  it('is 0 when there are no other items', () => {
+    expect(positionForIndex([], 0)).toBe(0)
+  })
+
+  it('goes before the first item when dropped at the start', () => {
+    expect(positionForIndex([0, 1, 2], 0)).toBe(-1)
+  })
+
+  it('goes after the last item when dropped at the end', () => {
+    expect(positionForIndex([0, 1, 2], 3)).toBe(3)
+  })
+
+  it('is the midpoint of the flanking items for a middle drop', () => {
+    expect(positionForIndex([0, 2, 4], 1)).toBe(1)
+    expect(positionForIndex([0, 2, 4], 2)).toBe(3)
+  })
+
+  it('clamps a negative or oversized index to the ends', () => {
+    expect(positionForIndex([0, 1], -3)).toBe(-1)
+    expect(positionForIndex([0, 1], 9)).toBe(2)
   })
 })

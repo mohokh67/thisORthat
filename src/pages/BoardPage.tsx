@@ -6,7 +6,7 @@ import { NotFoundPage } from './NotFoundPage'
 import { EditableTitle } from '../components/EditableTitle'
 import { IdentityBadge } from '../components/IdentityBadge'
 import { NameModal } from '../components/NameModal'
-import { BoardColumn } from '../components/BoardColumn'
+import { BoardColumns } from '../components/BoardColumns'
 import { Toasts } from '../components/Toasts'
 
 export function BoardPage({ boardId }: { boardId: string }): ReactElement {
@@ -70,30 +70,7 @@ export function BoardPage({ boardId }: { boardId: string }): ReactElement {
         </div>
       </header>
 
-      {board.columns.length === 0 ? (
-        <div className="board-empty">
-          <p>This board has no columns yet.</p>
-          <button type="button" onClick={board.addColumn}>
-            Add your first column
-          </button>
-        </div>
-      ) : (
-        <div className="columns-row">
-          {board.columns.map((column) => (
-            <BoardColumn
-              key={column.id}
-              column={column}
-              notes={board.notesByColumn.get(column.id) ?? []}
-              onAddNote={board.addNote}
-              onEditNote={board.editNote}
-              onDeleteNote={board.deleteNote}
-            />
-          ))}
-          <button type="button" className="column-add" onClick={board.addColumn}>
-            + Add column
-          </button>
-        </div>
-      )}
+      <BoardColumns board={board} />
 
       <Toasts toasts={board.toasts} />
     </div>

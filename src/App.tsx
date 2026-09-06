@@ -1,16 +1,12 @@
 import type { ReactElement } from 'react'
-import { supabaseConfig } from './lib/supabase'
+import { useHashRoute } from './routing/useHashRoute'
+import { LandingPage } from './pages/LandingPage'
+import { BoardPage } from './pages/BoardPage'
 
 export default function App(): ReactElement {
-  const host = URL.canParse(supabaseConfig.url)
-    ? new URL(supabaseConfig.url).host
-    : supabaseConfig.url
-
-  return (
-    <main className="app-shell">
-      <h1>thisORthat</h1>
-      <p>Scaffolding is live. Board features arrive in later tickets.</p>
-      <p className="muted">Supabase project: {host}</p>
-    </main>
-  )
+  const route = useHashRoute()
+  if (route.name === 'board') {
+    return <BoardPage key={route.boardId} boardId={route.boardId} />
+  }
+  return <LandingPage />
 }

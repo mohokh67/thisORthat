@@ -783,3 +783,86 @@ button.danger {
   font-size: 0.85rem;
   box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
 }
+
+/* Phone layout: one column at a time via snap-scroll, full-screen log sheet,
+   wrapping header. Desktop and tablet keep the grid layout untouched. */
+@media (max-width: 640px) {
+  .board {
+    height: 100dvh;
+  }
+
+  .board-header {
+    flex-wrap: wrap;
+  }
+
+  .board-header-right {
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+
+  .columns-row {
+    gap: 0.5rem;
+    padding: 0.75rem 0.5rem;
+    scroll-snap-type: x mandatory;
+    overflow-y: auto;
+  }
+
+  .column,
+  .column-add {
+    flex: 0 0 calc(100% - 2.5rem);
+    scroll-snap-align: center;
+  }
+
+  .drawer-scrim {
+    inset: 0;
+  }
+
+  .log-drawer {
+    inset: 0;
+    top: 0;
+    width: 100%;
+    border-left: none;
+  }
+}
+
+/* Touch devices: reveal the hover-only note controls and grow every tap target
+   to a comfortable size. Keyed on hover capability, not width, so a no-hover
+   tablet gets usable controls without changing its layout. */
+@media (hover: none) {
+  .note-actions {
+    opacity: 0.65;
+  }
+
+  .vote-btn,
+  .column-tool,
+  .column-drag {
+    min-width: 2.5rem;
+    min-height: 2.5rem;
+  }
+
+  .priority-chip {
+    min-height: 2.25rem;
+    padding: 0.05rem 0.6rem;
+  }
+
+  .note-action {
+    min-width: 2rem;
+    min-height: 2rem;
+    font-size: 1.1rem;
+  }
+
+  /* Widen the drag strip and give the note body room so taps on text still
+     land on the body, not the handle. */
+  .note {
+    padding-left: 2.4rem;
+  }
+
+  .note-drag {
+    width: 2rem;
+  }
+
+  .note-drag,
+  .column-drag {
+    touch-action: none;
+  }
+}

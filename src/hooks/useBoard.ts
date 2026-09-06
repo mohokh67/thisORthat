@@ -48,9 +48,15 @@ export interface UseBoard {
   board: Board | null
   columns: Column[]
   notesByColumn: Map<string, Note[]>
+  /** Every note on the board, unordered — for whole-board consumers like Export. */
+  notes: Note[]
+  /** Every vote on the board — for whole-board consumers like Export. */
+  votes: Vote[]
   voteState: Map<string, NoteVoteState>
   connection: ConnectionStatus
   toasts: Toast[]
+  /** Surfaces a transient status message (Share, Export failures). */
+  pushToast: (message: string) => void
   addColumn: () => void
   renameColumn: (columnId: string, title: string) => void
   recolorColumn: (columnId: string, color: ColumnColor | null) => void
@@ -696,9 +702,12 @@ export function useBoard(boardId: string, identity: Identity | null): UseBoard {
     board: state.entities?.board ?? null,
     columns,
     notesByColumn,
+    notes: state.entities?.notes ?? EMPTY_NOTES,
+    votes: state.entities?.votes ?? EMPTY_VOTES,
     voteState,
     connection,
     toasts,
+    pushToast,
     addColumn,
     renameColumn,
     recolorColumn,

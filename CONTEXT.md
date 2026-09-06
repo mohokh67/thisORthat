@@ -90,7 +90,8 @@ history.
 ## Custom order
 
 The hand-arranged sequence of Notes within a Column, set by dragging. It is the
-Board's canonical order, shared by everyone, and the order used for **Export**.
+Board's canonical order, shared by everyone. It is what a **Sort lens** other
+than Custom temporarily reorders away from on one screen.
 
 ## Sort lens
 
@@ -117,9 +118,11 @@ that thing is gone.
 
 A point-in-time dump of a Board that a Participant downloads to their own machine.
 **Markdown**: a readable summary (Columns as headings, Notes as bullets annotated
-with Points, Priority, and Author), in **Custom order**, without the Activity log.
-**JSON**: the complete Board including every Event. The Activity log can also be
-exported on its own as CSV.
+with Points, Priority, and Author), in the exporting Participant's current
+on-screen order (each Column's **Sort lens** applied), without the Activity log.
+It is therefore viewer-relative, not a single canonical rendering. **JSON**: the
+complete Board including every Event. The Activity log can also be exported on
+its own as CSV.
 
 ## Recent boards
 

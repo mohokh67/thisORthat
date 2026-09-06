@@ -245,6 +245,127 @@ input[type="text"] {
   color: color-mix(in srgb, currentColor 55%, transparent);
 }
 
+.log-filter {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.6rem 1rem;
+  border-bottom: 1px solid color-mix(in srgb, currentColor 15%, transparent);
+}
+
+.log-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.log-chip {
+  padding: 0.2rem 0.55rem;
+  font-size: 0.75rem;
+  border-radius: 999px;
+}
+
+.log-chip[aria-pressed="true"] {
+  background: color-mix(in srgb, var(--accent-blue) 30%, transparent);
+  border-color: color-mix(in srgb, var(--accent-blue) 55%, transparent);
+}
+
+.log-search {
+  font-size: 0.8rem;
+}
+
+.log-drawer-footer {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  padding: 0.6rem 1rem;
+  border-top: 1px solid color-mix(in srgb, currentColor 15%, transparent);
+}
+
+.log-loadmore,
+.log-export {
+  font-size: 0.8rem;
+  padding: 0.35rem 0.6rem;
+}
+
+.log-hint {
+  font-size: 0.72rem;
+  color: color-mix(in srgb, currentColor 55%, transparent);
+}
+
+.share-button,
+.export-button {
+  font-size: 0.85rem;
+  padding: 0.3rem 0.6rem;
+  white-space: nowrap;
+}
+
+.export-menu {
+  position: relative;
+}
+
+.export-menu-list {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 0.3rem);
+  display: flex;
+  flex-direction: column;
+  min-width: 8rem;
+  background: Canvas;
+  color: CanvasText;
+  border: 1px solid color-mix(in srgb, currentColor 20%, transparent);
+  border-radius: 6px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+  overflow: hidden;
+  z-index: 17;
+}
+
+.export-menu-list button {
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  text-align: left;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.85rem;
+}
+
+.export-menu-list button:hover {
+  background: color-mix(in srgb, currentColor 10%, transparent);
+}
+
+.recent-boards {
+  margin-top: 2.5rem;
+}
+
+.recent-boards h2 {
+  font-size: 1rem;
+  margin-bottom: 0.5rem;
+}
+
+.recent-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.recent-list li {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.4rem 0;
+  border-bottom: 1px solid color-mix(in srgb, currentColor 8%, transparent);
+}
+
+.recent-time {
+  font-size: 0.75rem;
+  color: color-mix(in srgb, currentColor 55%, transparent);
+  white-space: nowrap;
+}
+
 .modal-backdrop {
   position: fixed;
   inset: 0;

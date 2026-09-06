@@ -3,9 +3,11 @@ import {
   toBoard,
   toColumn,
   toNote,
+  toVote,
   type BoardRow,
   type ColumnRow,
   type NoteRow,
+  type VoteRow,
 } from './mappers'
 import { templateColumns } from './templates'
 import type { Board, BoardData, TemplateName } from './types'
@@ -53,17 +55,20 @@ export async function fetchBoard(id: string): Promise<BoardData | null> {
   if (error) throw error
   if (!board) return null
 
-  const [columnsResult, notesResult] = await Promise.all([
+  const [columnsResult, notesResult, votesResult] = await Promise.all([
     supabase.from('columns').select().eq('board_id', id).order('position', { ascending: true }),
     supabase.from('notes').select().eq('board_id', id).order('position', { ascending: true }),
+    supabase.from('votes').select().eq('board_id', id),
   ])
   if (columnsResult.error) throw columnsResult.error
   if (notesResult.error) throw notesResult.error
+  if (votesResult.error) throw votesResult.error
 
   return {
     board: toBoard(board as BoardRow),
     columns: (columnsResult.data as ColumnRow[]).map(toColumn),
     notes: (notesResult.data as NoteRow[]).map(toNote),
+    votes: (votesResult.data as VoteRow[]).map(toVote),
   }
 }
 

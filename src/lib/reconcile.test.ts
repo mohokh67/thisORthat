@@ -31,6 +31,7 @@ const base: BoardEntities = {
   board,
   columns: [column('c1'), column('c2', 1)],
   notes: [note('n1', 'c1'), note('n2', 'c1')],
+  votes: [{ id: 'n1:p1', boardId: 'b1', noteId: 'n1', participantId: 'p1', value: 1 }],
 }
 
 describe('reconcile', () => {
@@ -97,6 +98,28 @@ describe('reconcile', () => {
     })
     expect(next.columns.find((c) => c.id === 'c1')?.title).toBe('Renamed')
     expect(next.notes).toBe(base.notes)
+  })
+
+  it('upserts a vote by its derived id', () => {
+    const added = reconcile(base, {
+      table: 'votes',
+      type: 'upsert',
+      row: { id: 'n2:p1', boardId: 'b1', noteId: 'n2', participantId: 'p1', value: -1 },
+    })
+    expect(added.votes.map((v) => v.id)).toEqual(['n1:p1', 'n2:p1'])
+
+    const switched = reconcile(added, {
+      table: 'votes',
+      type: 'upsert',
+      row: { id: 'n1:p1', boardId: 'b1', noteId: 'n1', participantId: 'p1', value: -1 },
+    })
+    expect(switched.votes).toHaveLength(2)
+    expect(switched.votes.find((v) => v.id === 'n1:p1')?.value).toBe(-1)
+  })
+
+  it('removes a vote on delete and no-ops for an unknown id', () => {
+    expect(reconcile(base, { table: 'votes', type: 'delete', id: 'n1:p1' }).votes).toEqual([])
+    expect(reconcile(base, { table: 'votes', type: 'delete', id: 'nope' })).toBe(base)
   })
 
   it('replaces the board on a board upsert', () => {

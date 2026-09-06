@@ -12,7 +12,9 @@ import {
   createNote as insertNote,
   deleteNote as deleteNoteRow,
   updateNoteText,
+  updateNotePriority,
 } from '../lib/notes'
+import { nextPriority } from '../lib/priority'
 import { joinBoard } from '../lib/participants'
 import {
   isPrecisionExhausted,
@@ -21,10 +23,12 @@ import {
   positionForIndex,
   reindexed,
 } from '../lib/position'
+import { castVote, clearVote, resolveVote } from '../lib/votes'
+import { voteId as makeVoteId } from '../lib/mappers'
 import { reconcile, type BoardEntities } from '../lib/reconcile'
 import { subscribeToBoard, type ConnectionStatus } from '../lib/realtime'
 import type { Identity } from '../lib/identity'
-import type { Board, Column, ColumnColor, Note } from '../lib/types'
+import type { Board, Column, ColumnColor, Note, Vote, VoteValue } from '../lib/types'
 import { useToasts, type Toast } from '../components/useToasts'
 
 type Status = 'loading' | 'not-found' | 'error' | 'ready'
@@ -34,11 +38,17 @@ interface State {
   entities: BoardEntities | null
 }
 
+export interface NoteVoteState {
+  points: number
+  mine: VoteValue | null
+}
+
 export interface UseBoard {
   status: Status
   board: Board | null
   columns: Column[]
   notesByColumn: Map<string, Note[]>
+  voteState: Map<string, NoteVoteState>
   connection: ConnectionStatus
   toasts: Toast[]
   addColumn: () => void
@@ -49,12 +59,15 @@ export interface UseBoard {
   renameBoard: (title: string) => void
   addNote: (columnId: string, text: string) => void
   editNote: (noteId: string, text: string) => void
+  cyclePriority: (noteId: string) => void
   deleteNote: (noteId: string) => void
+  vote: (noteId: string, arrow: VoteValue) => void
 }
 
 const SAVE_FAILED = "Couldn't save that change. Please try again."
 const EMPTY_COLUMNS: Column[] = []
 const EMPTY_NOTES: Note[] = []
+const EMPTY_VOTES: Vote[] = []
 
 function byPosition(a: { position: number }, b: { position: number }): number {
   return a.position - b.position
@@ -417,6 +430,26 @@ export function useBoard(boardId: string, identity: Identity | null): UseBoard {
     [optimisticMutate],
   )
 
+  const cyclePriority = useCallback(
+    (noteId: string) => {
+      const existing = entitiesRef.current?.notes.find((note) => note.id === noteId)
+      if (!existing) {
+        return
+      }
+      const priority = nextPriority(existing.priority)
+      optimisticMutate(
+        (current) => ({
+          ...current,
+          notes: current.notes.map((note) =>
+            note.id === noteId ? { ...note, priority } : note,
+          ),
+        }),
+        () => updateNotePriority(noteId, priority),
+      )
+    },
+    [optimisticMutate],
+  )
+
   const deleteNote = useCallback(
     (noteId: string) => {
       const removed = entitiesRef.current?.notes.find((note) => note.id === noteId)
@@ -431,6 +464,48 @@ export function useBoard(boardId: string, identity: Identity | null): UseBoard {
     [optimisticMutate],
   )
 
+  const vote = useCallback(
+    (noteId: string, arrow: VoteValue) => {
+      const entities = entitiesRef.current
+      if (!entities || !identity) {
+        return
+      }
+      const id = makeVoteId(noteId, identity.id)
+      const current = entities.votes.find((v) => v.id === id)
+      const resolution = resolveVote(current?.value ?? null, arrow)
+
+      if (resolution.action === 'clear') {
+        optimisticMutate(
+          (state) => ({ ...state, votes: state.votes.filter((v) => v.id !== id) }),
+          () => clearVote(noteId, identity.id),
+        )
+        return
+      }
+
+      const optimistic: Vote = {
+        id,
+        boardId,
+        noteId,
+        participantId: identity.id,
+        value: resolution.value,
+      }
+      optimisticMutate(
+        (state) => ({
+          ...state,
+          votes: [...state.votes.filter((v) => v.id !== id), optimistic],
+        }),
+        () =>
+          castVote({
+            boardId,
+            noteId,
+            participantId: identity.id,
+            value: resolution.value,
+          }),
+      )
+    },
+    [boardId, identity, optimisticMutate],
+  )
+
   const columns = useMemo(
     () => (state.entities ? [...state.entities.columns].sort(byPosition) : EMPTY_COLUMNS),
     [state.entities],
@@ -439,12 +514,25 @@ export function useBoard(boardId: string, identity: Identity | null): UseBoard {
     () => groupByColumn(state.entities ? state.entities.notes : EMPTY_NOTES),
     [state.entities],
   )
+  const voteState = useMemo(() => {
+    const map = new Map<string, NoteVoteState>()
+    for (const v of state.entities?.votes ?? EMPTY_VOTES) {
+      const entry = map.get(v.noteId) ?? { points: 0, mine: null }
+      entry.points += v.value
+      if (identity && v.participantId === identity.id) {
+        entry.mine = v.value
+      }
+      map.set(v.noteId, entry)
+    }
+    return map
+  }, [state.entities, identity])
 
   return {
     status: state.status,
     board: state.entities?.board ?? null,
     columns,
     notesByColumn,
+    voteState,
     connection,
     toasts,
     addColumn,
@@ -455,6 +543,8 @@ export function useBoard(boardId: string, identity: Identity | null): UseBoard {
     renameBoard,
     addNote,
     editNote,
+    cyclePriority,
     deleteNote,
+    vote,
   }
 }

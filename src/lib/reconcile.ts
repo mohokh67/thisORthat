@@ -1,9 +1,10 @@
-import type { Board, Column, Note } from './types'
+import type { Board, Column, Note, Vote } from './types'
 
 export interface BoardEntities {
   board: Board
   columns: Column[]
   notes: Note[]
+  votes: Vote[]
 }
 
 /** A normalized row change, produced by the realtime adapter from a Supabase payload. */
@@ -13,6 +14,8 @@ export type ChangeEvent =
   | { table: 'columns'; type: 'delete'; id: string }
   | { table: 'notes'; type: 'upsert'; row: Note }
   | { table: 'notes'; type: 'delete'; id: string }
+  | { table: 'votes'; type: 'upsert'; row: Vote }
+  | { table: 'votes'; type: 'delete'; id: string }
 
 function upsertById<T extends { id: string }>(list: T[], row: T): T[] {
   const index = list.findIndex((item) => item.id === row.id)
@@ -62,6 +65,13 @@ export function reconcile(entities: BoardEntities, event: ChangeEvent): BoardEnt
       }
       const notes = removeById(entities.notes, event.id)
       return notes === entities.notes ? entities : { ...entities, notes }
+    }
+    case 'votes': {
+      if (event.type === 'upsert') {
+        return { ...entities, votes: upsertById(entities.votes, event.row) }
+      }
+      const votes = removeById(entities.votes, event.id)
+      return votes === entities.votes ? entities : { ...entities, votes }
     }
   }
 }

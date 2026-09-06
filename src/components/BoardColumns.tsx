@@ -56,12 +56,15 @@ export function BoardColumns({ board }: { board: UseBoard }): ReactElement {
               key={column.id}
               column={column}
               notes={board.notesByColumn.get(column.id) ?? []}
+              voteState={board.voteState}
               onRename={board.renameColumn}
               onRecolor={board.recolorColumn}
               onDeleteColumn={board.deleteColumn}
               onAddNote={board.addNote}
               onEditNote={board.editNote}
+              onCyclePriority={board.cyclePriority}
               onDeleteNote={board.deleteNote}
+              onVote={board.vote}
             />
           ))}
         </SortableContext>

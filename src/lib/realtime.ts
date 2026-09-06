@@ -1,5 +1,5 @@
 import { supabase } from './supabase'
-import type { BoardRow, ColumnRow, NoteRow } from './mappers'
+import type { BoardRow, ColumnRow, NoteRow, VoteRow } from './mappers'
 import {
   toChangeEvent,
   toConnectionStatus,
@@ -55,6 +55,11 @@ export function subscribeToBoard(
       'postgres_changes',
       { event: '*', schema: 'public', table: 'notes', filter: `board_id=eq.${boardId}` },
       forward('notes'),
+    )
+    .on<VoteRow>(
+      'postgres_changes',
+      { event: '*', schema: 'public', table: 'votes', filter: `board_id=eq.${boardId}` },
+      forward('votes'),
     )
     .subscribe((status) => {
       const mapped = toConnectionStatus(status)

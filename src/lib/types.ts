@@ -53,8 +53,20 @@ export interface Note {
   createdAt: string
 }
 
+export type VoteValue = 1 | -1
+
+export interface Vote {
+  /** Derived `${noteId}:${participantId}` — votes have no surrogate id. */
+  id: string
+  boardId: string
+  noteId: string
+  participantId: string
+  value: VoteValue
+}
+
 export interface BoardData {
   board: Board
   columns: Column[]
   notes: Note[]
+  votes: Vote[]
 }

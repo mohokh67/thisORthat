@@ -1,22 +1,28 @@
 import { useState, type ReactElement } from 'react'
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import type { Column, ColumnColor, Note } from '../lib/types'
+import type { Column, ColumnColor, Note, VoteValue } from '../lib/types'
+import type { NoteVoteState } from '../hooks/useBoard'
 import { NoteCard } from './NoteCard'
 import { NoteComposer } from './NoteComposer'
 import { ColorPicker } from './ColorPicker'
 import { ConfirmDialog } from './ConfirmDialog'
 import { useInlineEditText } from './useInlineEditText'
 
+const NO_VOTES: NoteVoteState = { points: 0, mine: null }
+
 interface BoardColumnProps {
   column: Column
   notes: Note[]
+  voteState: Map<string, NoteVoteState>
   onRename: (columnId: string, title: string) => void
   onRecolor: (columnId: string, color: ColumnColor | null) => void
   onDeleteColumn: (columnId: string) => void
   onAddNote: (columnId: string, text: string) => void
   onEditNote: (noteId: string, text: string) => void
+  onCyclePriority: (noteId: string) => void
   onDeleteNote: (noteId: string) => void
+  onVote: (noteId: string, arrow: VoteValue) => void
 }
 
 export function BoardColumn(props: BoardColumnProps): ReactElement {
@@ -102,14 +108,21 @@ export function BoardColumn(props: BoardColumnProps): ReactElement {
 
       <div className="column-body">
         <NoteComposer onAdd={(text) => props.onAddNote(column.id, text)} />
-        {notes.map((note) => (
-          <NoteCard
-            key={note.id}
-            note={note}
-            onEdit={(text) => props.onEditNote(note.id, text)}
-            onDelete={() => props.onDeleteNote(note.id)}
-          />
-        ))}
+        {notes.map((note) => {
+          const votes = props.voteState.get(note.id) ?? NO_VOTES
+          return (
+            <NoteCard
+              key={note.id}
+              note={note}
+              points={votes.points}
+              myVote={votes.mine}
+              onEdit={(text) => props.onEditNote(note.id, text)}
+              onCyclePriority={() => props.onCyclePriority(note.id)}
+              onDelete={() => props.onDeleteNote(note.id)}
+              onVote={(arrow) => props.onVote(note.id, arrow)}
+            />
+          )
+        })}
       </div>
 
       {confirming && (

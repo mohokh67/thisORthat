@@ -1,7 +1,10 @@
+import type { ReactElement } from 'react'
 import { supabaseConfig } from './lib/supabase'
 
-export default function App() {
-  const host = safeHost(supabaseConfig.url)
+export default function App(): ReactElement {
+  const host = URL.canParse(supabaseConfig.url)
+    ? new URL(supabaseConfig.url).host
+    : supabaseConfig.url
 
   return (
     <main className="app-shell">
@@ -10,12 +13,4 @@ export default function App() {
       <p className="muted">Supabase project: {host}</p>
     </main>
   )
-}
-
-function safeHost(url: string): string {
-  try {
-    return new URL(url).host
-  } catch {
-    return url
-  }
 }

@@ -17,17 +17,16 @@ export function readSupabaseConfig(env: RawEnv): SupabaseConfig {
   const url = env.VITE_SUPABASE_URL?.trim()
   const anonKey = env.VITE_SUPABASE_ANON_KEY?.trim()
 
-  const missing = [
-    !url && 'VITE_SUPABASE_URL',
-    !anonKey && 'VITE_SUPABASE_ANON_KEY',
-  ].filter((name): name is string => Boolean(name))
-
-  if (missing.length > 0) {
+  if (!url || !anonKey) {
+    const missing = [
+      !url && 'VITE_SUPABASE_URL',
+      !anonKey && 'VITE_SUPABASE_ANON_KEY',
+    ].filter(Boolean)
     throw new Error(
       `Missing required environment variable(s): ${missing.join(', ')}. ` +
         `Set them in a local .env file (see .env.example) or as CI secrets.`,
     )
   }
 
-  return { url: url as string, anonKey: anonKey as string }
+  return { url, anonKey }
 }

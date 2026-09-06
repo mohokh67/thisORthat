@@ -15,3 +15,11 @@ Default vocabulary: `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-
 ### Domain docs
 
 Single-context: `CONTEXT.md` and `docs/adr/` at the repo root. See `docs/agents/domain.md`.
+
+## Development
+
+- Stack and commands are in `README.md`. Vite + React + TS, Supabase, Vitest.
+- **Base path gotcha:** `vite.config.ts` sets `base: '/thisORthat/'` for project-path GitHub Pages, so local URLs are `http://localhost:5173/thisORthat/`. Routing (added in #4) must account for this.
+- Build-time env (`VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`) is validated in `src/lib/config.ts` and unit-tested there; `src/lib/supabase.ts` builds the shared client from it.
+- Tests cover pure logic only (see the spec's Testing Decisions). No component or E2E tests.
+- SQL migrations live in `supabase/migrations/`; each table ships permissive `anon` RLS (ADR-0001).

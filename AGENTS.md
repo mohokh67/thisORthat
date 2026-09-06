@@ -23,4 +23,6 @@ Single-context: `CONTEXT.md` and `docs/adr/` at the repo root. See `docs/agents/
 - Build-time env (`VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`) is validated in `src/lib/config.ts` and unit-tested there; `src/lib/supabase.ts` builds the shared client from it.
 - Tests cover pure logic only (see the spec's Testing Decisions). No component or E2E tests.
 - Tests must not import `src/lib/supabase.ts` (directly or transitively) without stubbing `import.meta.env` — it validates env and throws at module load.
-- SQL migrations live in `supabase/migrations/`; each table ships permissive `anon` RLS (ADR-0001).
+- SQL migrations live in `supabase/migrations/`; each table ships permissive `anon` RLS (ADR-0001) and is added to the `supabase_realtime` publication. Apply them by pasting into the Supabase SQL Editor (no CLI in this environment).
+- Layout: pure domain logic (the test seam) in `src/lib/*.ts` with a `.test.ts` beside it (`templates`, `parseHash`, `identity`, `position`, `linkify`, `config`); Supabase adapters also in `src/lib/` (`boards`, `notes`, `participants`, `supabase`); React in `src/pages/` and `src/components/`; hash routing in `src/routing/`.
+- Fractional `position` (double precision) orders columns and notes; new notes go to the top via `positionAtStart`. Use `src/lib/position.ts` helpers, never ad-hoc arithmetic.

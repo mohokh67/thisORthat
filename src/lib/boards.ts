@@ -1,44 +1,14 @@
 import { supabase } from './supabase'
-import { positionAtEnd } from './position'
+import {
+  toBoard,
+  toColumn,
+  toNote,
+  type BoardRow,
+  type ColumnRow,
+  type NoteRow,
+} from './mappers'
 import { templateColumns } from './templates'
-import { toNote, type NoteRow } from './notes'
 import type { Board, BoardData, Column, TemplateName } from './types'
-
-interface BoardRow {
-  id: string
-  title: string
-  template: string
-  created_at: string
-}
-
-interface ColumnRow {
-  id: string
-  board_id: string
-  title: string
-  color: string | null
-  position: number
-  created_at: string
-}
-
-function toBoard(row: BoardRow): Board {
-  return {
-    id: row.id,
-    title: row.title,
-    template: row.template as TemplateName,
-    createdAt: row.created_at,
-  }
-}
-
-function toColumn(row: ColumnRow): Column {
-  return {
-    id: row.id,
-    boardId: row.board_id,
-    title: row.title,
-    color: (row.color as Column['color']) ?? null,
-    position: row.position,
-    createdAt: row.created_at,
-  }
-}
 
 /**
  * Creates a Board with a client-generated id and inserts the Template's seeded
@@ -103,23 +73,24 @@ export async function renameBoard(id: string, title: string): Promise<void> {
 }
 
 /**
- * Appends a bare Column to a Board (title placeholder, position after the last
- * one). Renaming, colouring, reordering, and deleting Columns arrive in #8.
+ * Inserts a bare Column. The caller supplies the id and position (computed from
+ * local state) so the new column can render optimistically. Renaming, colouring,
+ * reordering, and deleting Columns arrive in #8.
  */
-export async function addColumn(boardId: string, title = 'New column'): Promise<Column> {
-  const { data: last, error: lastError } = await supabase
-    .from('columns')
-    .select('position')
-    .eq('board_id', boardId)
-    .order('position', { ascending: false })
-    .limit(1)
-    .maybeSingle()
-  if (lastError) throw lastError
-
-  const position = positionAtEnd(last?.position ?? null)
+export async function addColumn(input: {
+  id: string
+  boardId: string
+  title?: string
+  position: number
+}): Promise<Column> {
   const { data, error } = await supabase
     .from('columns')
-    .insert({ id: crypto.randomUUID(), board_id: boardId, title, position })
+    .insert({
+      id: input.id,
+      board_id: input.boardId,
+      title: input.title ?? 'New column',
+      position: input.position,
+    })
     .select()
     .single()
   if (error) throw error

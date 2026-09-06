@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   isPrecisionExhausted,
+  planInsert,
   planReorder,
   positionAtEnd,
   positionAtStart,
@@ -126,6 +127,52 @@ describe('planReorder', () => {
         { id: 'A', position: 0 },
         { id: 'C', position: 1 },
         { id: 'B', position: 2 },
+      ],
+    })
+  })
+})
+
+describe('planInsert', () => {
+  const cols = (positions: number[]) =>
+    positions.map((position, i) => ({ id: String.fromCharCode(65 + i), position }))
+
+  it('inserts into an empty column at position 0', () => {
+    expect(planInsert([], 'X', 0)).toEqual({ kind: 'move', position: 0 })
+  })
+
+  it('inserts at the start, before the current first', () => {
+    expect(planInsert(cols([0, 1, 2]), 'X', 0)).toEqual({ kind: 'move', position: -1 })
+  })
+
+  it('inserts in the middle, between the flanking notes', () => {
+    expect(planInsert(cols([0, 1, 2]), 'X', 1)).toEqual({ kind: 'move', position: 0.5 })
+  })
+
+  it('inserts at the end, after the current last', () => {
+    expect(planInsert(cols([0, 1, 2]), 'X', 3)).toEqual({ kind: 'move', position: 3 })
+  })
+
+  it('clamps a target index past the end', () => {
+    expect(planInsert(cols([0, 1, 2]), 'X', 99)).toEqual({ kind: 'move', position: 3 })
+  })
+
+  it('reindexes the whole column, item included, when the target gap is exhausted', () => {
+    const plan = planInsert(
+      [
+        { id: 'A', position: 1 },
+        { id: 'B', position: 1 + Number.EPSILON },
+        { id: 'C', position: 5 },
+      ],
+      'X',
+      1,
+    )
+    expect(plan).toEqual({
+      kind: 'reindex',
+      order: [
+        { id: 'A', position: 0 },
+        { id: 'X', position: 1 },
+        { id: 'B', position: 2 },
+        { id: 'C', position: 3 },
       ],
     })
   })

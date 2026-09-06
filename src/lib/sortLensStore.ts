@@ -37,6 +37,25 @@ export function parseStoredLenses(raw: string | null): StoredLenses {
   return result
 }
 
+/**
+ * The lens map after one column's choice: `custom` clears the entry (its absence
+ * is the default), anything else sets it. Returns a new object; `current` is
+ * left untouched.
+ */
+export function applyLensChoice(
+  current: StoredLenses,
+  columnId: string,
+  lens: SortLens,
+): StoredLenses {
+  const next = { ...current }
+  if (lens === 'custom') {
+    delete next[columnId]
+  } else {
+    next[columnId] = lens
+  }
+  return next
+}
+
 /** Reads this device's saved lens choices for a board. Never throws. */
 export function loadLenses(boardId: string): StoredLenses {
   try {
@@ -47,21 +66,16 @@ export function loadLenses(boardId: string): StoredLenses {
 }
 
 /**
- * Records one column's lens choice (or clears it when `lens` is `custom`) and
- * returns the updated map. Persistence is best-effort — a private-mode failure
- * just means the choice will not survive a reload.
+ * Records one column's lens choice and returns the updated map. Persistence is
+ * best-effort — a private-mode failure just means the choice will not survive a
+ * reload.
  */
 export function saveLens(boardId: string, columnId: string, lens: SortLens): StoredLenses {
-  const next = loadLenses(boardId)
-  if (lens === 'custom') {
-    delete next[columnId]
-  } else {
-    next[columnId] = lens
-  }
+  const next = applyLensChoice(loadLenses(boardId), columnId, lens)
   try {
     localStorage.setItem(keyFor(boardId), JSON.stringify(next))
   } catch {
-    // Storage disabled: the in-memory map below still drives this session.
+    // Storage disabled: the returned map still drives this session.
   }
   return next
 }

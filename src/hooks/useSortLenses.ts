@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { loadLenses, saveLens } from '../lib/sortLensStore'
 import type { SortLens } from '../lib/types'
 
@@ -33,5 +33,5 @@ export function useSortLenses(boardId: string): SortLenses {
     [boardId],
   )
 
-  return { lensFor, setLens }
+  return useMemo(() => ({ lensFor, setLens }), [lensFor, setLens])
 }

@@ -44,10 +44,46 @@ export function positionForIndex(others: number[], targetIndex: number): number 
   return positionBetween(others[targetIndex - 1], others[targetIndex])
 }
 
-export type ReorderPlan =
-  | null
+export type InsertPlan =
   | { kind: 'move'; position: number }
   | { kind: 'reindex'; order: { id: string; position: number }[] }
+
+export type ReorderPlan = null | InsertPlan
+
+/**
+ * Decides how to place `itemId` at `targetIndex` among `others` (a
+ * position-ascending list that does NOT contain the item): a single fractional
+ * position, or — when the flanking positions can no longer fit a value between
+ * them — fresh positions for the whole column with the item spliced in. Used
+ * both for reordering within a column and for dropping a note in from another.
+ */
+export function planInsert(
+  others: readonly { id: string; position: number }[],
+  itemId: string,
+  targetIndex: number,
+): InsertPlan {
+  const clamped = Math.max(0, Math.min(targetIndex, others.length))
+  const before = others[clamped - 1]?.position
+  const after = others[clamped]?.position
+
+  if (before !== undefined && after !== undefined && isPrecisionExhausted(before, after)) {
+    const ids = others.map((item) => item.id)
+    ids.splice(clamped, 0, itemId)
+    const positions = reindexed(ids.length)
+    return {
+      kind: 'reindex',
+      order: ids.map((id, index) => ({ id, position: positions[index] })),
+    }
+  }
+
+  return {
+    kind: 'move',
+    position: positionForIndex(
+      others.map((item) => item.position),
+      clamped,
+    ),
+  }
+}
 
 /**
  * Decides how to move `itemId` to `targetIndex` within `sorted` (a
@@ -64,27 +100,9 @@ export function planReorder(
   if (from === -1 || from === targetIndex) {
     return null
   }
-
-  const others = sorted.filter((item) => item.id !== itemId)
-  const clamped = Math.max(0, Math.min(targetIndex, others.length))
-  const before = others[clamped - 1]?.position
-  const after = others[clamped]?.position
-
-  if (before !== undefined && after !== undefined && isPrecisionExhausted(before, after)) {
-    const reordered = [...others]
-    reordered.splice(clamped, 0, sorted[from])
-    const positions = reindexed(reordered.length)
-    return {
-      kind: 'reindex',
-      order: reordered.map((item, index) => ({ id: item.id, position: positions[index] })),
-    }
-  }
-
-  return {
-    kind: 'move',
-    position: positionForIndex(
-      others.map((item) => item.position),
-      clamped,
-    ),
-  }
+  return planInsert(
+    sorted.filter((item) => item.id !== itemId),
+    itemId,
+    targetIndex,
+  )
 }

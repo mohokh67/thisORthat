@@ -118,4 +118,11 @@ describe('orderNotes', () => {
     const c = note({ id: 'c', priority: 'low', position: 3 })
     expect(ids(orderNotes([c, a, b], 'priority', new Map()))).toEqual(['a', 'b', 'c'])
   })
+
+  it('keeps input order when position and key are both tied', () => {
+    const a = note({ id: 'a', priority: 'high', position: 4 })
+    const b = note({ id: 'b', priority: 'high', position: 4 })
+    expect(ids(orderNotes([a, b], 'priority', new Map()))).toEqual(['a', 'b'])
+    expect(ids(orderNotes([b, a], 'priority', new Map()))).toEqual(['b', 'a'])
+  })
 })

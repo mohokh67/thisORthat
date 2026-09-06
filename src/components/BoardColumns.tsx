@@ -71,6 +71,11 @@ export function BoardColumns({
     const customIds = (board.notesByColumn.get(overColumnId) ?? []).map((note) => note.id)
     const overIsNote = over.data.current?.type === 'note'
 
+    // Released over its own column's chrome while already last: nothing moves.
+    if (sameColumn && !overIsNote && customIds[customIds.length - 1] === String(active.id)) {
+      return
+    }
+
     let targetIndex: number
     if (overIsNote && targetLens === 'custom') {
       const overIndex = customIds.indexOf(String(over.id))

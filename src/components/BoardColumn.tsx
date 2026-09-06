@@ -149,6 +149,9 @@ export function BoardColumn(props: BoardColumnProps): ReactElement {
 
       <div className="column-body">
         <NoteComposer onAdd={(text) => props.onAddNote(column.id, text)} />
+        {/* Notes stay sortable under every lens so a note can always be dragged
+            out to another column; `handleDragEnd` drops in-column reorders while
+            a non-Custom lens is active, so such a drag just animates back. */}
         <SortableContext
           items={orderedNotes.map((note) => note.id)}
           strategy={verticalListSortingStrategy}

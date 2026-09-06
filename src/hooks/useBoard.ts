@@ -19,14 +19,7 @@ import {
 } from '../lib/notes'
 import { nextPriority } from '../lib/priority'
 import { joinBoard } from '../lib/participants'
-import {
-  isPrecisionExhausted,
-  planReorder,
-  positionAtEnd,
-  positionAtStart,
-  positionForIndex,
-  reindexed,
-} from '../lib/position'
+import { planInsert, planReorder, positionAtEnd, positionAtStart } from '../lib/position'
 import { castVote, clearVote } from '../lib/votes'
 import { points, resolveVote } from '../lib/voteMath'
 import { voteId as makeVoteId } from '../lib/mappers'
@@ -461,10 +454,10 @@ export function useBoard(boardId: string, identity: Identity | null): UseBoard {
   )
 
   /**
-   * Moves a note within its column (a fractional-position update, or a full
-   * column reindex when precision is exhausted) or into another column at
-   * `targetIndex` in that column's shared Custom order. `targetIndex` counts
-   * within the target column's position-ordered notes.
+   * Reorders a note within its column, or moves it into another column, placing
+   * it at `targetIndex` in the target column's shared Custom (position) order —
+   * a single fractional-position update, or a full column reindex when the
+   * flanking positions can no longer fit a value between them.
    */
   const moveNote = useCallback(
     (noteId: string, toColumnId: string, targetIndex: number) => {
@@ -476,75 +469,53 @@ export function useBoard(boardId: string, identity: Identity | null): UseBoard {
       if (!note || !entities.columns.some((column) => column.id === toColumnId)) {
         return
       }
+      const sameColumn = note.columnId === toColumnId
 
-      if (note.columnId === toColumnId) {
-        const sorted = [...entities.notes]
-          .filter((n) => n.columnId === toColumnId)
-          .sort(byPosition)
-          .map((n) => ({ id: n.id, position: n.position }))
-        const plan = planReorder(sorted, noteId, targetIndex)
-        if (!plan) {
-          return
-        }
-        if (plan.kind === 'move') {
-          patchNote(noteId, { position: plan.position }, () =>
-            updateNotePosition(noteId, plan.position),
-          )
-          return
-        }
-        const positionById = new Map(plan.order.map((entry) => [entry.id, entry.position]))
-        optimisticMutate(
-          (current) => ({
-            ...current,
-            notes: current.notes.map((n) =>
-              positionById.has(n.id)
-                ? { ...n, position: positionById.get(n.id) as number }
-                : n,
-            ),
-          }),
-          () => reindexNotes(plan.order),
-        )
-        return
-      }
-
-      const targetNotes = [...entities.notes]
+      // For a reorder this list holds the moved note; for a cross-column move it
+      // is the destination column without it — the shape each planner expects.
+      const columnNotes = [...entities.notes]
         .filter((n) => n.columnId === toColumnId)
         .sort(byPosition)
-      const positions = targetNotes.map((n) => n.position)
-      const clamped = Math.max(0, Math.min(targetIndex, positions.length))
-      const before = positions[clamped - 1]
-      const after = positions[clamped]
+        .map((n) => ({ id: n.id, position: n.position }))
+      const plan = sameColumn
+        ? planReorder(columnNotes, noteId, targetIndex)
+        : planInsert(columnNotes, noteId, targetIndex)
+      if (!plan) {
+        return
+      }
 
-      if (before !== undefined && after !== undefined && isPrecisionExhausted(before, after)) {
-        const reordered = [...targetNotes]
-        reordered.splice(clamped, 0, note)
-        const fresh = reindexed(reordered.length)
-        const order = reordered.map((n, index) => ({ id: n.id, position: fresh[index] }))
-        const positionById = new Map(order.map((entry) => [entry.id, entry.position]))
-        const movedPosition = positionById.get(noteId) as number
-        optimisticMutate(
-          (current) => ({
-            ...current,
-            notes: current.notes.map((n) => {
-              if (n.id === noteId) {
-                return { ...n, columnId: toColumnId, position: movedPosition }
-              }
-              return positionById.has(n.id)
-                ? { ...n, position: positionById.get(n.id) as number }
-                : n
-            }),
-          }),
-          async () => {
-            await moveNoteToColumn(noteId, toColumnId, movedPosition)
-            await reindexNotes(order.filter((entry) => entry.id !== noteId))
-          },
+      // A cross-column move also carries the note's new `columnId`.
+      const relocate = sameColumn ? {} : { columnId: toColumnId }
+
+      if (plan.kind === 'move') {
+        patchNote(noteId, { ...relocate, position: plan.position }, () =>
+          sameColumn
+            ? updateNotePosition(noteId, plan.position)
+            : moveNoteToColumn(noteId, toColumnId, plan.position),
         )
         return
       }
 
-      const position = positionForIndex(positions, clamped)
-      patchNote(noteId, { columnId: toColumnId, position }, () =>
-        moveNoteToColumn(noteId, toColumnId, position),
+      const positionById = new Map(plan.order.map((entry) => [entry.id, entry.position]))
+      const movedPosition = positionById.get(noteId) as number
+      optimisticMutate(
+        (current) => ({
+          ...current,
+          notes: current.notes.map((n) => {
+            if (n.id === noteId) {
+              return { ...n, ...relocate, position: movedPosition }
+            }
+            return positionById.has(n.id)
+              ? { ...n, position: positionById.get(n.id) as number }
+              : n
+          }),
+        }),
+        sameColumn
+          ? () => reindexNotes(plan.order)
+          : async () => {
+              await moveNoteToColumn(noteId, toColumnId, movedPosition)
+              await reindexNotes(plan.order.filter((entry) => entry.id !== noteId))
+            },
       )
     },
     [optimisticMutate, patchNote],

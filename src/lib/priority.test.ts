@@ -19,4 +19,8 @@ describe('nextPriority', () => {
     priority = nextPriority(priority)
     expect(priority).toBe('none')
   })
+
+  it('falls back to "none" for an unrecognised value', () => {
+    expect(nextPriority('bogus' as never)).toBe('none')
+  })
 })

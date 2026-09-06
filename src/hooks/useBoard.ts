@@ -16,15 +16,9 @@ import {
 } from '../lib/notes'
 import { nextPriority } from '../lib/priority'
 import { joinBoard } from '../lib/participants'
-import {
-  isPrecisionExhausted,
-  positionAtEnd,
-  positionAtStart,
-  positionForIndex,
-  reindexed,
-} from '../lib/position'
+import { planReorder, positionAtEnd, positionAtStart } from '../lib/position'
 import { castVote, clearVote } from '../lib/votes'
-import { resolveVote } from '../lib/voteMath'
+import { points, resolveVote } from '../lib/voteMath'
 import { voteId as makeVoteId } from '../lib/mappers'
 import { reconcile, type BoardEntities } from '../lib/reconcile'
 import { subscribeToBoard, type ConnectionStatus } from '../lib/realtime'
@@ -309,38 +303,31 @@ export function useBoard(boardId: string, identity: Identity | null): UseBoard {
       if (!entities) {
         return
       }
-      const sorted = [...entities.columns].sort(byPosition)
-      const from = sorted.findIndex((column) => column.id === columnId)
-      if (from === -1 || from === targetIndex) {
+      const sorted = [...entities.columns]
+        .sort(byPosition)
+        .map((column) => ({ id: column.id, position: column.position }))
+      const plan = planReorder(sorted, columnId, targetIndex)
+      if (!plan) {
         return
       }
-      const others = sorted.filter((column) => column.id !== columnId)
-      const clamped = Math.max(0, Math.min(targetIndex, others.length))
-      const before = others[clamped - 1]?.position
-      const after = others[clamped]?.position
-
-      if (before !== undefined && after !== undefined && isPrecisionExhausted(before, after)) {
-        const reordered = [...others]
-        reordered.splice(clamped, 0, sorted[from])
-        const positions = reindexed(reordered.length)
-        const next = reordered.map((column, index) => ({ ...column, position: positions[index] }))
-        optimisticMutate(
-          (current) => ({
-            ...current,
-            columns: current.columns.map(
-              (column) => next.find((n) => n.id === column.id) ?? column,
-            ),
-          }),
-          () => reindexColumns(next.map((c) => ({ id: c.id, position: c.position }))),
+      if (plan.kind === 'move') {
+        patchColumn(columnId, { position: plan.position }, () =>
+          moveColumnRow(columnId, plan.position),
         )
         return
       }
-
-      const position = positionForIndex(
-        others.map((column) => column.position),
-        clamped,
+      const positionById = new Map(plan.order.map((entry) => [entry.id, entry.position]))
+      optimisticMutate(
+        (current) => ({
+          ...current,
+          columns: current.columns.map((column) =>
+            positionById.has(column.id)
+              ? { ...column, position: positionById.get(column.id) as number }
+              : column,
+          ),
+        }),
+        () => reindexColumns(plan.order),
       )
-      patchColumn(columnId, { position }, () => moveColumnRow(columnId, position))
     },
     [optimisticMutate, patchColumn],
   )
@@ -513,16 +500,25 @@ export function useBoard(boardId: string, identity: Identity | null): UseBoard {
     [state.entities],
   )
   const voteState = useMemo(() => {
-    const map = new Map<string, NoteVoteState>()
-    for (const v of state.entities?.votes ?? EMPTY_VOTES) {
-      const entry = map.get(v.noteId) ?? { points: 0, mine: null }
-      entry.points += v.value
-      if (identity && v.participantId === identity.id) {
-        entry.mine = v.value
+    const byNote = new Map<string, Vote[]>()
+    for (const vote of state.entities?.votes ?? EMPTY_VOTES) {
+      const list = byNote.get(vote.noteId)
+      if (list) {
+        list.push(vote)
+      } else {
+        byNote.set(vote.noteId, [vote])
       }
-      map.set(v.noteId, entry)
     }
-    return map
+    const result = new Map<string, NoteVoteState>()
+    for (const [noteId, votes] of byNote) {
+      result.set(noteId, {
+        points: points(votes),
+        mine: identity
+          ? (votes.find((vote) => vote.participantId === identity.id)?.value ?? null)
+          : null,
+      })
+    }
+    return result
   }, [state.entities, identity])
 
   return {

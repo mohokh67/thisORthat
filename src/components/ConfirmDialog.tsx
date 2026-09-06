@@ -23,14 +23,19 @@ export function ConfirmDialog({
         aria-modal="true"
         aria-label={title}
         onClick={(event) => event.stopPropagation()}
+        onKeyDown={(event) => {
+          if (event.key === 'Escape') {
+            onCancel()
+          }
+        }}
       >
         <h2>{title}</h2>
         <p className="muted">{body}</p>
         <div className="dialog-actions">
-          <button type="button" onClick={onCancel}>
+          <button type="button" onClick={onCancel} autoFocus>
             Cancel
           </button>
-          <button type="button" className="danger" onClick={onConfirm} autoFocus>
+          <button type="button" className="danger" onClick={onConfirm}>
             {confirmLabel}
           </button>
         </div>

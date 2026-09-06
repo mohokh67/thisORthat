@@ -43,3 +43,48 @@ export function positionForIndex(others: number[], targetIndex: number): number 
   }
   return positionBetween(others[targetIndex - 1], others[targetIndex])
 }
+
+export type ReorderPlan =
+  | null
+  | { kind: 'move'; position: number }
+  | { kind: 'reindex'; order: { id: string; position: number }[] }
+
+/**
+ * Decides how to move `itemId` to `targetIndex` within `sorted` (a
+ * position-ascending list): a single fractional-position update, or — when the
+ * flanking positions can no longer fit a value between them — fresh positions
+ * for the whole reordered list. `null` when the move is a no-op.
+ */
+export function planReorder(
+  sorted: readonly { id: string; position: number }[],
+  itemId: string,
+  targetIndex: number,
+): ReorderPlan {
+  const from = sorted.findIndex((item) => item.id === itemId)
+  if (from === -1 || from === targetIndex) {
+    return null
+  }
+
+  const others = sorted.filter((item) => item.id !== itemId)
+  const clamped = Math.max(0, Math.min(targetIndex, others.length))
+  const before = others[clamped - 1]?.position
+  const after = others[clamped]?.position
+
+  if (before !== undefined && after !== undefined && isPrecisionExhausted(before, after)) {
+    const reordered = [...others]
+    reordered.splice(clamped, 0, sorted[from])
+    const positions = reindexed(reordered.length)
+    return {
+      kind: 'reindex',
+      order: reordered.map((item, index) => ({ id: item.id, position: positions[index] })),
+    }
+  }
+
+  return {
+    kind: 'move',
+    position: positionForIndex(
+      others.map((item) => item.position),
+      clamped,
+    ),
+  }
+}

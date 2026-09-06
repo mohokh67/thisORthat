@@ -446,7 +446,14 @@ button.danger {
 
 .vote-btn[data-active] {
   opacity: 1;
+}
+
+.vote-btn[aria-label="Upvote"][data-active] {
   color: var(--accent-blue);
+}
+
+.vote-btn[aria-label="Downvote"][data-active] {
+  color: var(--accent-red);
 }
 
 .vote-points {

@@ -160,6 +160,25 @@ export function useBoard(boardId: string, identity: Identity | null): UseBoard {
     )
   }, [])
 
+  /** Applies an optimistic change, writes it (retrying once), and on a final
+   *  failure rolls the change back and shows a toast. */
+  const optimisticMutate = useCallback(
+    (
+      apply: (entities: BoardEntities) => BoardEntities,
+      rollback: (entities: BoardEntities) => BoardEntities,
+      write: () => Promise<unknown>,
+    ) => {
+      patch(apply)
+      void withRetry(write).then((ok) => {
+        if (!ok) {
+          patch(rollback)
+          pushToast(SAVE_FAILED)
+        }
+      })
+    },
+    [patch, pushToast],
+  )
+
   const addColumn = useCallback(() => {
     const entities = entitiesRef.current
     if (!entities) {
@@ -169,26 +188,20 @@ export function useBoard(boardId: string, identity: Identity | null): UseBoard {
     const lastPosition = entities.columns.length
       ? Math.max(...entities.columns.map((column) => column.position))
       : null
-    const position = positionAtEnd(lastPosition)
     const optimistic: Column = {
       id,
       boardId,
       title: 'New column',
       color: null,
-      position,
+      position: positionAtEnd(lastPosition),
       createdAt: new Date().toISOString(),
     }
-    patch((current) => ({ ...current, columns: [...current.columns, optimistic] }))
-    void withRetry(() => insertColumn({ id, boardId, position })).then((ok) => {
-      if (!ok) {
-        patch((current) => ({
-          ...current,
-          columns: current.columns.filter((column) => column.id !== id),
-        }))
-        pushToast(SAVE_FAILED)
-      }
-    })
-  }, [boardId, patch, pushToast])
+    optimisticMutate(
+      (current) => ({ ...current, columns: [...current.columns, optimistic] }),
+      (current) => ({ ...current, columns: current.columns.filter((c) => c.id !== id) }),
+      () => insertColumn({ id, boardId, position: optimistic.position }),
+    )
+  }, [boardId, optimisticMutate])
 
   const renameBoard = useCallback(
     (title: string) => {
@@ -201,15 +214,13 @@ export function useBoard(boardId: string, identity: Identity | null): UseBoard {
         return
       }
       const previous = entities.board.title
-      patch((current) => ({ ...current, board: { ...current.board, title: trimmed } }))
-      void withRetry(() => renameBoardRow(boardId, trimmed)).then((ok) => {
-        if (!ok) {
-          patch((current) => ({ ...current, board: { ...current.board, title: previous } }))
-          pushToast(SAVE_FAILED)
-        }
-      })
+      optimisticMutate(
+        (current) => ({ ...current, board: { ...current.board, title: trimmed } }),
+        (current) => ({ ...current, board: { ...current.board, title: previous } }),
+        () => renameBoardRow(boardId, trimmed),
+      )
     },
-    [boardId, patch, pushToast],
+    [boardId, optimisticMutate],
   )
 
   const addNote = useCallback(
@@ -227,7 +238,6 @@ export function useBoard(boardId: string, identity: Identity | null): UseBoard {
       const firstPosition = columnNotes.length
         ? Math.min(...columnNotes.map((note) => note.position))
         : null
-      const position = positionAtStart(firstPosition)
       const optimistic: Note = {
         id,
         boardId,
@@ -236,37 +246,30 @@ export function useBoard(boardId: string, identity: Identity | null): UseBoard {
         priority: 'none',
         authorId: identity.id,
         authorName: identity.name,
-        position,
+        position: positionAtStart(firstPosition),
         createdAt: new Date().toISOString(),
       }
-      patch((current) => ({ ...current, notes: [...current.notes, optimistic] }))
-      void withRetry(() =>
-        insertNote({
-          id,
-          boardId,
-          columnId,
-          text: trimmed,
-          authorId: identity.id,
-          authorName: identity.name,
-          position,
-        }),
-      ).then((ok) => {
-        if (!ok) {
-          patch((current) => ({
-            ...current,
-            notes: current.notes.filter((note) => note.id !== id),
-          }))
-          pushToast(SAVE_FAILED)
-        }
-      })
+      optimisticMutate(
+        (current) => ({ ...current, notes: [...current.notes, optimistic] }),
+        (current) => ({ ...current, notes: current.notes.filter((n) => n.id !== id) }),
+        () =>
+          insertNote({
+            id,
+            boardId,
+            columnId,
+            text: trimmed,
+            authorId: identity.id,
+            authorName: identity.name,
+            position: optimistic.position,
+          }),
+      )
     },
-    [boardId, identity, patch, pushToast],
+    [boardId, identity, optimisticMutate],
   )
 
   const editNote = useCallback(
     (noteId: string, text: string) => {
-      const entities = entitiesRef.current
-      const existing = entities?.notes.find((note) => note.id === noteId)
+      const existing = entitiesRef.current?.notes.find((note) => note.id === noteId)
       if (!existing) {
         return
       }
@@ -274,47 +277,32 @@ export function useBoard(boardId: string, identity: Identity | null): UseBoard {
       if (!trimmed || trimmed === existing.text) {
         return
       }
-      const previous = existing.text
-      patch((current) => ({
+      const setText = (value: string) => (current: BoardEntities) => ({
         ...current,
         notes: current.notes.map((note) =>
-          note.id === noteId ? { ...note, text: trimmed } : note,
+          note.id === noteId ? { ...note, text: value } : note,
         ),
-      }))
-      void withRetry(() => updateNoteText(noteId, trimmed)).then((ok) => {
-        if (!ok) {
-          patch((current) => ({
-            ...current,
-            notes: current.notes.map((note) =>
-              note.id === noteId ? { ...note, text: previous } : note,
-            ),
-          }))
-          pushToast(SAVE_FAILED)
-        }
       })
+      optimisticMutate(setText(trimmed), setText(existing.text), () =>
+        updateNoteText(noteId, trimmed),
+      )
     },
-    [patch, pushToast],
+    [optimisticMutate],
   )
 
   const deleteNote = useCallback(
     (noteId: string) => {
-      const entities = entitiesRef.current
-      const removed = entities?.notes.find((note) => note.id === noteId)
+      const removed = entitiesRef.current?.notes.find((note) => note.id === noteId)
       if (!removed) {
         return
       }
-      patch((current) => ({
-        ...current,
-        notes: current.notes.filter((note) => note.id !== noteId),
-      }))
-      void withRetry(() => deleteNoteRow(noteId)).then((ok) => {
-        if (!ok) {
-          patch((current) => ({ ...current, notes: [...current.notes, removed] }))
-          pushToast(SAVE_FAILED)
-        }
-      })
+      optimisticMutate(
+        (current) => ({ ...current, notes: current.notes.filter((n) => n.id !== noteId) }),
+        (current) => ({ ...current, notes: [...current.notes, removed] }),
+        () => deleteNoteRow(noteId),
+      )
     },
-    [patch, pushToast],
+    [optimisticMutate],
   )
 
   const columns = useMemo(

@@ -105,6 +105,20 @@ input[type="text"] {
   border-bottom: 1px solid color-mix(in srgb, currentColor 15%, transparent);
 }
 
+.board-header-right {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.conn-chip {
+  font-size: 0.75rem;
+  padding: 0.2rem 0.5rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent-orange) 25%, transparent);
+  white-space: nowrap;
+}
+
 .identity-badge {
   font-size: 0.85rem;
   padding: 0.3rem 0.6rem;
@@ -282,4 +296,26 @@ input[type="text"] {
   align-self: flex-start;
   font-size: 0.85rem;
   padding: 0.3rem 0.55rem;
+}
+
+/* Toasts */
+.toasts {
+  position: fixed;
+  left: 50%;
+  bottom: 1.25rem;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  z-index: 20;
+  pointer-events: none;
+}
+
+.toast {
+  padding: 0.5rem 0.9rem;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--accent-red) 90%, black);
+  color: white;
+  font-size: 0.85rem;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
 }

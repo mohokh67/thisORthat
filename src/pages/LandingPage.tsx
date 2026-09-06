@@ -1,5 +1,7 @@
 import { useState, type FormEvent, type ReactElement } from 'react'
 import { createBoard } from '../lib/boards'
+import { loadRecentBoards } from '../lib/recentBoards'
+import { relativeTime } from '../lib/relativeTime'
 import { TEMPLATE_CHOICES } from '../lib/templates'
 import type { TemplateName } from '../lib/types'
 import { boardHash } from '../routing/parseHash'
@@ -10,6 +12,8 @@ export function LandingPage(): ReactElement {
   const [template, setTemplate] = useState<TemplateName>('positive-negative')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [recent] = useState(loadRecentBoards)
+  const [now] = useState(() => Date.now())
 
   const trimmedTitle = title.trim()
 
@@ -70,6 +74,24 @@ export function LandingPage(): ReactElement {
 
         {error && <p className="error">{error}</p>}
       </form>
+
+      <section className="recent-boards">
+        <h2>Recent boards</h2>
+        {recent.length === 0 ? (
+          <p className="muted">Boards you open on this device will show up here.</p>
+        ) : (
+          <ul className="recent-list">
+            {recent.map((entry) => (
+              <li key={entry.id}>
+                <a href={boardHash(entry.id)}>{entry.title}</a>
+                <span className="recent-time">
+                  {relativeTime(new Date(entry.lastOpened).toISOString(), now)}
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
     </main>
   )
 }

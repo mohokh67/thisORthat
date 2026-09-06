@@ -297,6 +297,32 @@ input[type="text"] {
   padding: 0.3rem 0.5rem 0;
 }
 
+.column-sort {
+  padding: 0 0.5rem;
+}
+
+.column-sort-label {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  opacity: 0.55;
+}
+
+.column-sort-select {
+  font: inherit;
+  font-size: 0.78rem;
+  text-transform: none;
+  letter-spacing: normal;
+  padding: 0.1rem 0.2rem;
+  background: transparent;
+  color: inherit;
+  border: 1px solid color-mix(in srgb, currentColor 20%, transparent);
+  border-radius: 4px;
+}
+
 .color-picker {
   display: flex;
   gap: 0.3rem;
@@ -361,7 +387,29 @@ button.danger {
   border: 1px solid color-mix(in srgb, currentColor 15%, transparent);
   border-radius: 6px;
   background: Canvas;
-  padding: 0.5rem 0.6rem;
+  padding: 0.5rem 0.6rem 0.5rem 1.15rem;
+}
+
+.note-drag {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 1.1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: transparent;
+  color: inherit;
+  cursor: grab;
+  opacity: 0.25;
+  touch-action: none;
+}
+
+.note-drag:hover,
+.note-drag:focus-visible {
+  opacity: 0.7;
 }
 
 .note-body {

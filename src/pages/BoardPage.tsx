@@ -3,6 +3,7 @@ import { createIdentity, loadIdentity, normalizeName, saveIdentity, type Identit
 import { navigate } from '../routing/useHashRoute'
 import { useBoard } from '../hooks/useBoard'
 import { usePresence } from '../hooks/usePresence'
+import { useSortLenses } from '../hooks/useSortLenses'
 import { NotFoundPage } from './NotFoundPage'
 import { EditableTitle } from '../components/EditableTitle'
 import { IdentityBadge } from '../components/IdentityBadge'
@@ -15,6 +16,7 @@ export function BoardPage({ boardId }: { boardId: string }): ReactElement {
   const [identity, setIdentity] = useState<Identity | null>(() => loadIdentity())
   const board = useBoard(boardId, identity)
   const presence = usePresence(boardId, identity)
+  const lenses = useSortLenses(boardId)
 
   const handleNameSubmit = useCallback((name: string) => {
     const next = createIdentity(name)
@@ -74,7 +76,7 @@ export function BoardPage({ boardId }: { boardId: string }): ReactElement {
         </div>
       </header>
 
-      <BoardColumns board={board} />
+      <BoardColumns board={board} lenses={lenses} />
 
       <Toasts toasts={board.toasts} />
     </div>

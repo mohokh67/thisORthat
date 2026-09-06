@@ -97,8 +97,52 @@ input[type="text"] {
 }
 
 .board-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
   padding: 0.75rem 1rem;
   border-bottom: 1px solid color-mix(in srgb, currentColor 15%, transparent);
+}
+
+.identity-badge {
+  font-size: 0.85rem;
+  padding: 0.3rem 0.6rem;
+  white-space: nowrap;
+}
+
+.identity-badge-input {
+  font-size: 0.85rem;
+  max-width: 12rem;
+}
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background: color-mix(in srgb, black 45%, transparent);
+  z-index: 10;
+}
+
+.modal {
+  width: min(24rem, 100%);
+  padding: 1.5rem;
+  border-radius: 10px;
+  background: Canvas;
+  color: CanvasText;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.35);
+}
+
+.modal h2 {
+  margin: 0;
+}
+
+.modal.stack {
+  gap: 0.9rem;
+  margin-top: 0;
 }
 
 .editable-title {

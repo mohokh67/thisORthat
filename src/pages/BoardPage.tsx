@@ -1,9 +1,13 @@
 import { useCallback, useEffect, useState, type ReactElement } from 'react'
 import { addColumn, fetchBoard, renameBoard } from '../lib/boards'
+import { createIdentity, loadIdentity, normalizeName, saveIdentity, type Identity } from '../lib/identity'
+import { joinBoard } from '../lib/participants'
 import type { Board, Column } from '../lib/types'
 import { navigate } from '../routing/useHashRoute'
 import { NotFoundPage } from './NotFoundPage'
 import { EditableTitle } from '../components/EditableTitle'
+import { IdentityBadge } from '../components/IdentityBadge'
+import { NameModal } from '../components/NameModal'
 
 type LoadState =
   | { status: 'loading' }
@@ -13,6 +17,7 @@ type LoadState =
 
 export function BoardPage({ boardId }: { boardId: string }): ReactElement {
   const [state, setState] = useState<LoadState>({ status: 'loading' })
+  const [identity, setIdentity] = useState<Identity | null>(() => loadIdentity())
 
   useEffect(() => {
     let active = true
@@ -39,7 +44,34 @@ export function BoardPage({ boardId }: { boardId: string }): ReactElement {
     }
   }, [boardId])
 
-  const handleRename = useCallback(
+  // Record presence once the board exists and we know who we are.
+  useEffect(() => {
+    if (state.status === 'ready' && identity) {
+      joinBoard(boardId, identity).catch(console.error)
+    }
+  }, [state.status, identity, boardId])
+
+  const handleNameSubmit = useCallback((name: string) => {
+    const next = createIdentity(name)
+    saveIdentity(next)
+    setIdentity(next)
+  }, [])
+
+  const handleIdentityRename = useCallback(
+    (nextName: string) => {
+      setIdentity((current) => {
+        if (!current) {
+          return current
+        }
+        const next = { ...current, name: normalizeName(nextName) }
+        saveIdentity(next)
+        return next
+      })
+    },
+    [],
+  )
+
+  const handleBoardRename = useCallback(
     async (nextTitle: string) => {
       setState((current) =>
         current.status === 'ready'
@@ -88,7 +120,8 @@ export function BoardPage({ boardId }: { boardId: string }): ReactElement {
   return (
     <div className="board">
       <header className="board-header">
-        <EditableTitle value={state.board.title} onCommit={handleRename} />
+        <EditableTitle value={state.board.title} onCommit={handleBoardRename} />
+        {identity && <IdentityBadge name={identity.name} onRename={handleIdentityRename} />}
       </header>
 
       {state.columns.length === 0 ? (
@@ -110,6 +143,8 @@ export function BoardPage({ boardId }: { boardId: string }): ReactElement {
           </button>
         </div>
       )}
+
+      {!identity && <NameModal onSubmit={handleNameSubmit} />}
     </div>
   )
 }

@@ -1,0 +1,50 @@
+export type TemplateName = 'positive-negative' | 'start-stop-continue' | 'blank'
+
+export type ColumnColor =
+  | 'gray'
+  | 'red'
+  | 'orange'
+  | 'green'
+  | 'blue'
+  | 'purple'
+
+export type Priority = 'none' | 'low' | 'medium' | 'high'
+
+export interface ColumnSeed {
+  title: string
+  color: ColumnColor | null
+}
+
+export interface Board {
+  id: string
+  title: string
+  template: TemplateName
+  createdAt: string
+}
+
+export interface Column {
+  id: string
+  boardId: string
+  title: string
+  color: ColumnColor | null
+  position: number
+  createdAt: string
+}
+
+export interface Note {
+  id: string
+  boardId: string
+  columnId: string
+  text: string
+  priority: Priority
+  authorId: string
+  authorName: string
+  position: number
+  createdAt: string
+}
+
+export interface BoardData {
+  board: Board
+  columns: Column[]
+  notes: Note[]
+}

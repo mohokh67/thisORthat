@@ -30,8 +30,8 @@ npm run dev               # http://localhost:5173/thisORthat/
 | `npm run dev` | Start the dev server |
 | `npm run build` | Type-check, then build to `dist/` |
 | `npm run preview` | Serve the built `dist/` locally |
-| `npm test` | Run Vitest in watch mode |
-| `npm run test:run` | Run Vitest once |
+| `npm test` | Run the unit tests once |
+| `npm run test:watch` | Run Vitest in watch mode |
 | `npm run typecheck` | Type-check without emitting |
 
 ### Environment
@@ -58,9 +58,9 @@ The initial migration is a no-op; tables are added in later tickets.
 
 ## Deployment
 
-`.github/workflows/deploy.yml` builds and publishes to GitHub Pages on every push
-to `main`. `.github/workflows/ci.yml` runs tests and a build on every pull
-request.
+`.github/workflows/deploy.yml` runs the tests, builds, and publishes to GitHub
+Pages on every push to `main`. `.github/workflows/ci.yml` runs the tests and a
+build on every pull request.
 
 One-time setup (stores the Supabase secrets and points Pages at Actions):
 

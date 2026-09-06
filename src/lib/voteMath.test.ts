@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { points, resolveVote } from './votes'
+import { points, resolveVote } from './voteMath'
 
 describe('resolveVote', () => {
   it('sets the arrow when there is no current vote', () => {

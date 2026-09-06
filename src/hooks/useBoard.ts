@@ -23,7 +23,8 @@ import {
   positionForIndex,
   reindexed,
 } from '../lib/position'
-import { castVote, clearVote, resolveVote } from '../lib/votes'
+import { castVote, clearVote } from '../lib/votes'
+import { resolveVote } from '../lib/voteMath'
 import { voteId as makeVoteId } from '../lib/mappers'
 import { reconcile, type BoardEntities } from '../lib/reconcile'
 import { subscribeToBoard, type ConnectionStatus } from '../lib/realtime'

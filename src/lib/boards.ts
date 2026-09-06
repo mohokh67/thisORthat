@@ -1,6 +1,7 @@
 import { supabase } from './supabase'
 import { templateColumns } from './templates'
-import type { Board, BoardWithColumns, Column, TemplateName } from './types'
+import { toNote, type NoteRow } from './notes'
+import type { Board, BoardData, Column, TemplateName } from './types'
 
 interface BoardRow {
   id: string
@@ -71,8 +72,8 @@ export async function createBoard(input: {
   return toBoard(data as BoardRow)
 }
 
-/** A Board and its Columns (ordered), or `null` if no board has that id. */
-export async function fetchBoard(id: string): Promise<BoardWithColumns | null> {
+/** A Board with its Columns and Notes (both ordered), or `null` if no board has that id. */
+export async function fetchBoard(id: string): Promise<BoardData | null> {
   const { data: board, error } = await supabase
     .from('boards')
     .select()
@@ -81,16 +82,17 @@ export async function fetchBoard(id: string): Promise<BoardWithColumns | null> {
   if (error) throw error
   if (!board) return null
 
-  const { data: columns, error: columnsError } = await supabase
-    .from('columns')
-    .select()
-    .eq('board_id', id)
-    .order('position', { ascending: true })
-  if (columnsError) throw columnsError
+  const [columnsResult, notesResult] = await Promise.all([
+    supabase.from('columns').select().eq('board_id', id).order('position', { ascending: true }),
+    supabase.from('notes').select().eq('board_id', id).order('position', { ascending: true }),
+  ])
+  if (columnsResult.error) throw columnsResult.error
+  if (notesResult.error) throw notesResult.error
 
   return {
     board: toBoard(board as BoardRow),
-    columns: (columns as ColumnRow[]).map(toColumn),
+    columns: (columnsResult.data as ColumnRow[]).map(toColumn),
+    notes: (notesResult.data as NoteRow[]).map(toNote),
   }
 }
 

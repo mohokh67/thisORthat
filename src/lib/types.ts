@@ -8,6 +8,8 @@ export type ColumnColor =
   | 'blue'
   | 'purple'
 
+export type Priority = 'none' | 'low' | 'medium' | 'high'
+
 export interface ColumnSeed {
   title: string
   color: ColumnColor | null
@@ -29,7 +31,20 @@ export interface Column {
   createdAt: string
 }
 
-export interface BoardWithColumns {
+export interface Note {
+  id: string
+  boardId: string
+  columnId: string
+  text: string
+  priority: Priority
+  authorId: string
+  authorName: string
+  position: number
+  createdAt: string
+}
+
+export interface BoardData {
   board: Board
   columns: Column[]
+  notes: Note[]
 }

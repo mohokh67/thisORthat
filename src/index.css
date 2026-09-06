@@ -200,7 +200,82 @@ input[type="text"] {
   padding: 0.6rem 0.75rem;
 }
 
+.column-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0 0.6rem 0.6rem;
+}
+
 .column-add {
   flex: 0 0 auto;
   align-self: flex-start;
+}
+
+/* Notes */
+.note {
+  position: relative;
+  border: 1px solid color-mix(in srgb, currentColor 15%, transparent);
+  border-radius: 6px;
+  background: Canvas;
+  padding: 0.5rem 0.6rem;
+}
+
+.note-body {
+  cursor: text;
+  border-radius: 4px;
+}
+
+.note-body:focus-visible {
+  outline: 2px solid var(--accent-blue);
+  outline-offset: 2px;
+}
+
+.note-text {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.note-author {
+  margin: 0.4rem 0 0;
+  font-size: 0.75rem;
+  color: color-mix(in srgb, currentColor 55%, transparent);
+}
+
+.note-delete {
+  position: absolute;
+  top: 0.15rem;
+  right: 0.15rem;
+  padding: 0 0.35rem;
+  line-height: 1.4;
+  border: none;
+  background: transparent;
+  opacity: 0;
+  font-size: 1rem;
+}
+
+.note:hover .note-delete,
+.note:focus-within .note-delete {
+  opacity: 0.6;
+}
+
+.note-delete:hover {
+  opacity: 1;
+}
+
+.note-textarea {
+  font: inherit;
+  width: 100%;
+  resize: vertical;
+  padding: 0.4rem 0.5rem;
+  border: 1px solid color-mix(in srgb, currentColor 30%, transparent);
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+}
+
+.note-composer-open {
+  align-self: flex-start;
+  font-size: 0.85rem;
+  padding: 0.3rem 0.55rem;
 }

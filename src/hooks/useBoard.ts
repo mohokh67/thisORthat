@@ -59,7 +59,9 @@ function groupByColumn(notes: Note[]): Map<string, Note[]> {
   return grouped
 }
 
-/** Runs a write, retrying once. Returns whether it ultimately succeeded. */
+const RETRY_DELAY_MS = 400
+
+/** Runs a write, retrying once after a short delay. Returns whether it succeeded. */
 async function withRetry(write: () => Promise<unknown>): Promise<boolean> {
   for (let attempt = 0; attempt < 2; attempt += 1) {
     try {
@@ -67,6 +69,9 @@ async function withRetry(write: () => Promise<unknown>): Promise<boolean> {
       return true
     } catch (cause) {
       console.error(cause)
+      if (attempt === 0) {
+        await new Promise((resolve) => setTimeout(resolve, RETRY_DELAY_MS))
+      }
     }
   }
   return false
@@ -75,13 +80,17 @@ async function withRetry(write: () => Promise<unknown>): Promise<boolean> {
 /**
  * Owns one board's live state: initial load, the Realtime subscription and its
  * reconciliation, connection status with refetch-on-reconnect, presence, and the
- * optimistic mutations (each rolls back and toasts if the write fails twice).
+ * optimistic mutations (a write that fails twice resyncs from the database and
+ * toasts, rather than guessing an inverse that could clobber a concurrent edit).
  */
 export function useBoard(boardId: string, identity: Identity | null): UseBoard {
   const [state, setState] = useState<State>({ status: 'loading', entities: null })
   const [connection, setConnection] = useState<ConnectionStatus>('connecting')
   const { toasts, pushToast } = useToasts()
 
+  // Latest entities for the mutation callbacks to read without listing `state`
+  // as a dep (which would rebuild every handler on each change). Safe: the ref
+  // is only read inside event handlers, after commit.
   const entitiesRef = useRef<BoardEntities | null>(null)
   entitiesRef.current = state.entities
 
@@ -99,6 +108,8 @@ export function useBoard(boardId: string, identity: Identity | null): UseBoard {
     }
   }, [boardId])
 
+  // Independent initial load so the board still appears if realtime is down.
+  // A refetch on the first `live` (below) follows and reconciles any gap.
   useEffect(() => {
     let active = true
     setState({ status: 'loading', entities: null })
@@ -144,6 +155,8 @@ export function useBoard(boardId: string, identity: Identity | null): UseBoard {
         }
       },
     })
+    // `load` only changes with `boardId` (already a dep); listed so a future
+    // dep added to `load` doesn't silently stop recreating the channel.
   }, [boardId, load])
 
   useEffect(() => {
@@ -160,23 +173,20 @@ export function useBoard(boardId: string, identity: Identity | null): UseBoard {
     )
   }, [])
 
-  /** Applies an optimistic change, writes it (retrying once), and on a final
-   *  failure rolls the change back and shows a toast. */
+  /** Applies an optimistic change and writes it (retrying once). If the write
+   *  ultimately fails, toasts and resyncs from the database rather than applying
+   *  a guessed inverse that could clobber a concurrent edit. */
   const optimisticMutate = useCallback(
-    (
-      apply: (entities: BoardEntities) => BoardEntities,
-      rollback: (entities: BoardEntities) => BoardEntities,
-      write: () => Promise<unknown>,
-    ) => {
+    (apply: (entities: BoardEntities) => BoardEntities, write: () => Promise<unknown>) => {
       patch(apply)
       void withRetry(write).then((ok) => {
         if (!ok) {
-          patch(rollback)
           pushToast(SAVE_FAILED)
+          void load()
         }
       })
     },
-    [patch, pushToast],
+    [patch, pushToast, load],
   )
 
   const addColumn = useCallback(() => {
@@ -198,7 +208,6 @@ export function useBoard(boardId: string, identity: Identity | null): UseBoard {
     }
     optimisticMutate(
       (current) => ({ ...current, columns: [...current.columns, optimistic] }),
-      (current) => ({ ...current, columns: current.columns.filter((c) => c.id !== id) }),
       () => insertColumn({ id, boardId, position: optimistic.position }),
     )
   }, [boardId, optimisticMutate])
@@ -213,10 +222,8 @@ export function useBoard(boardId: string, identity: Identity | null): UseBoard {
       if (!trimmed || trimmed === entities.board.title) {
         return
       }
-      const previous = entities.board.title
       optimisticMutate(
         (current) => ({ ...current, board: { ...current.board, title: trimmed } }),
-        (current) => ({ ...current, board: { ...current.board, title: previous } }),
         () => renameBoardRow(boardId, trimmed),
       )
     },
@@ -251,7 +258,6 @@ export function useBoard(boardId: string, identity: Identity | null): UseBoard {
       }
       optimisticMutate(
         (current) => ({ ...current, notes: [...current.notes, optimistic] }),
-        (current) => ({ ...current, notes: current.notes.filter((n) => n.id !== id) }),
         () =>
           insertNote({
             id,
@@ -277,14 +283,14 @@ export function useBoard(boardId: string, identity: Identity | null): UseBoard {
       if (!trimmed || trimmed === existing.text) {
         return
       }
-      const setText = (value: string) => (current: BoardEntities) => ({
-        ...current,
-        notes: current.notes.map((note) =>
-          note.id === noteId ? { ...note, text: value } : note,
-        ),
-      })
-      optimisticMutate(setText(trimmed), setText(existing.text), () =>
-        updateNoteText(noteId, trimmed),
+      optimisticMutate(
+        (current) => ({
+          ...current,
+          notes: current.notes.map((note) =>
+            note.id === noteId ? { ...note, text: trimmed } : note,
+          ),
+        }),
+        () => updateNoteText(noteId, trimmed),
       )
     },
     [optimisticMutate],
@@ -298,7 +304,6 @@ export function useBoard(boardId: string, identity: Identity | null): UseBoard {
       }
       optimisticMutate(
         (current) => ({ ...current, notes: current.notes.filter((n) => n.id !== noteId) }),
-        (current) => ({ ...current, notes: [...current.notes, removed] }),
         () => deleteNoteRow(noteId),
       )
     },

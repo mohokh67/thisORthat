@@ -54,9 +54,33 @@ describe('reconcile', () => {
     expect(next.notes.map((n) => n.id)).toEqual(['n2'])
   })
 
-  it('ignores a delete for an unknown note id', () => {
+  it('returns the input unchanged on a delete for an unknown note id', () => {
     const next = reconcile(base, { table: 'notes', type: 'delete', id: 'nope' })
-    expect(next.notes).toEqual(base.notes)
+    expect(next).toBe(base)
+  })
+
+  it('returns the input unchanged on a delete for an unknown column id', () => {
+    const next = reconcile(base, { table: 'columns', type: 'delete', id: 'nope' })
+    expect(next).toBe(base)
+  })
+
+  it('adds a new column on an upsert for an unknown id', () => {
+    const next = reconcile(base, {
+      table: 'columns',
+      type: 'upsert',
+      row: column('c3', 2),
+    })
+    expect(next.columns.map((c) => c.id)).toEqual(['c1', 'c2', 'c3'])
+  })
+
+  it('moves a note between columns on an upsert with a new columnId', () => {
+    const next = reconcile(base, {
+      table: 'notes',
+      type: 'upsert',
+      row: { ...note('n1', 'c1'), columnId: 'c2' },
+    })
+    expect(next.notes.find((n) => n.id === 'n1')?.columnId).toBe('c2')
+    expect(next.notes).toHaveLength(2)
   })
 
   it('deleting a column also drops that column’s notes', () => {

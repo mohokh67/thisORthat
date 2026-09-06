@@ -13,3 +13,8 @@ note plus participant, applied as an upsert), and note ordering uses fractional
 position values so concurrent drags rarely collide. The accepted consequence is
 silent loss of one side of a truly concurrent text edit; the mitigation is that
 edits are small and fast, and the activity log records that an edit happened.
+
+Local edits are optimistic. If a write ultimately fails (two attempts), the
+client does not apply a guessed inverse — it refetches the board, so it never
+shows a value that was never database truth (a stale inverse could otherwise
+clobber a concurrent remote edit that landed while the write was retrying).

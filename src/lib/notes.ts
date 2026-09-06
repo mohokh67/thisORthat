@@ -49,3 +49,35 @@ export async function deleteNote(id: string): Promise<void> {
   const { error } = await supabase.from('notes').delete().eq('id', id)
   if (error) throw error
 }
+
+/** Moves a Note within its column: a single fractional-position update. */
+export async function updateNotePosition(id: string, position: number): Promise<void> {
+  const { error } = await supabase.from('notes').update({ position }).eq('id', id)
+  if (error) throw error
+}
+
+/** Moves a Note into another column at a computed position, in one update. */
+export async function moveNoteToColumn(
+  id: string,
+  columnId: string,
+  position: number,
+): Promise<void> {
+  const { error } = await supabase
+    .from('notes')
+    .update({ column_id: columnId, position })
+    .eq('id', id)
+  if (error) throw error
+}
+
+/** Writes fresh positions for a whole column of notes (the reindex fallback). */
+export async function reindexNotes(
+  notes: readonly { id: string; position: number }[],
+): Promise<void> {
+  const results = await Promise.all(
+    notes.map((note) =>
+      supabase.from('notes').update({ position: note.position }).eq('id', note.id),
+    ),
+  )
+  const failed = results.find((result) => result.error)
+  if (failed?.error) throw failed.error
+}

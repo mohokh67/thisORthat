@@ -6,6 +6,8 @@ import {
   type MouseEvent,
   type ReactElement,
 } from 'react'
+import { useSortable } from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
 import type { Note, VoteValue } from '../lib/types'
 import { LinkifiedText } from './LinkifiedText'
 
@@ -31,6 +33,17 @@ export function NoteCard({
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(note.text)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: note.id,
+    data: { type: 'note', columnId: note.columnId },
+    disabled: editing,
+  })
+  const dragStyle = {
+    transform: CSS.Translate.toString(transform),
+    transition,
+    opacity: isDragging ? 0.4 : undefined,
+  }
 
   useEffect(() => {
     if (editing) {
@@ -76,7 +89,7 @@ export function NoteCard({
 
   if (editing) {
     return (
-      <div className="note note-editing">
+      <div ref={setNodeRef} style={dragStyle} className="note note-editing">
         <textarea
           ref={textareaRef}
           className="note-textarea"
@@ -91,7 +104,16 @@ export function NoteCard({
   }
 
   return (
-    <div className="note">
+    <div ref={setNodeRef} style={dragStyle} className="note">
+      <button
+        type="button"
+        className="note-drag"
+        aria-label="Drag to reorder or move note"
+        {...attributes}
+        {...listeners}
+      >
+        ⠿
+      </button>
       <div className="note-actions">
         <button type="button" className="note-action" aria-label="Edit note" onClick={startEditing}>
           ✎

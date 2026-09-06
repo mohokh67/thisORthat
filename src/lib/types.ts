@@ -20,6 +20,18 @@ export const COLUMN_COLORS: readonly ColumnColor[] = [
 
 export type Priority = 'none' | 'low' | 'medium' | 'high'
 
+/** How a single Column is ordered on one Participant's screen. */
+export type SortLens = 'custom' | 'points' | 'priority' | 'newest' | 'oldest'
+
+/** The Sort lens options in the order they appear in the per-column control. */
+export const SORT_LENSES: readonly SortLens[] = [
+  'custom',
+  'points',
+  'priority',
+  'newest',
+  'oldest',
+]
+
 export interface ColumnSeed {
   title: string
   color: ColumnColor | null

@@ -11,12 +11,15 @@ import {
 import {
   createNote as insertNote,
   deleteNote as deleteNoteRow,
+  moveNoteToColumn,
+  reindexNotes,
   updateNoteText,
   updateNotePriority,
+  updateNotePosition,
 } from '../lib/notes'
 import { nextPriority } from '../lib/priority'
 import { joinBoard } from '../lib/participants'
-import { planReorder, positionAtEnd, positionAtStart } from '../lib/position'
+import { planInsert, planReorder, positionAtEnd, positionAtStart } from '../lib/position'
 import { castVote, clearVote } from '../lib/votes'
 import { points, resolveVote } from '../lib/voteMath'
 import { voteId as makeVoteId } from '../lib/mappers'
@@ -56,6 +59,7 @@ export interface UseBoard {
   editNote: (noteId: string, text: string) => void
   cyclePriority: (noteId: string) => void
   deleteNote: (noteId: string) => void
+  moveNote: (noteId: string, toColumnId: string, targetIndex: number) => void
   vote: (noteId: string, arrow: VoteValue) => void
 }
 
@@ -449,6 +453,74 @@ export function useBoard(boardId: string, identity: Identity | null): UseBoard {
     [optimisticMutate],
   )
 
+  /**
+   * Reorders a note within its column, or moves it into another column, placing
+   * it at `targetIndex` in the target column's shared Custom (position) order —
+   * a single fractional-position update, or a full column reindex when the
+   * flanking positions can no longer fit a value between them.
+   */
+  const moveNote = useCallback(
+    (noteId: string, toColumnId: string, targetIndex: number) => {
+      const entities = entitiesRef.current
+      if (!entities) {
+        return
+      }
+      const note = entities.notes.find((n) => n.id === noteId)
+      if (!note || !entities.columns.some((column) => column.id === toColumnId)) {
+        return
+      }
+      const sameColumn = note.columnId === toColumnId
+
+      // For a reorder this list holds the moved note; for a cross-column move it
+      // is the destination column without it — the shape each planner expects.
+      const columnNotes = [...entities.notes]
+        .filter((n) => n.columnId === toColumnId)
+        .sort(byPosition)
+        .map((n) => ({ id: n.id, position: n.position }))
+      const plan = sameColumn
+        ? planReorder(columnNotes, noteId, targetIndex)
+        : planInsert(columnNotes, noteId, targetIndex)
+      if (!plan) {
+        return
+      }
+
+      // A cross-column move also carries the note's new `columnId`.
+      const relocate = sameColumn ? {} : { columnId: toColumnId }
+
+      if (plan.kind === 'move') {
+        patchNote(noteId, { ...relocate, position: plan.position }, () =>
+          sameColumn
+            ? updateNotePosition(noteId, plan.position)
+            : moveNoteToColumn(noteId, toColumnId, plan.position),
+        )
+        return
+      }
+
+      const positionById = new Map(plan.order.map((entry) => [entry.id, entry.position]))
+      const movedPosition = positionById.get(noteId) as number
+      optimisticMutate(
+        (current) => ({
+          ...current,
+          notes: current.notes.map((n) => {
+            if (n.id === noteId) {
+              return { ...n, ...relocate, position: movedPosition }
+            }
+            return positionById.has(n.id)
+              ? { ...n, position: positionById.get(n.id) as number }
+              : n
+          }),
+        }),
+        sameColumn
+          ? () => reindexNotes(plan.order)
+          : async () => {
+              await moveNoteToColumn(noteId, toColumnId, movedPosition)
+              await reindexNotes(plan.order.filter((entry) => entry.id !== noteId))
+            },
+      )
+    },
+    [optimisticMutate, patchNote],
+  )
+
   const vote = useCallback(
     (noteId: string, arrow: VoteValue) => {
       const entities = entitiesRef.current
@@ -539,6 +611,7 @@ export function useBoard(boardId: string, identity: Identity | null): UseBoard {
     editNote,
     cyclePriority,
     deleteNote,
+    moveNote,
     vote,
   }
 }

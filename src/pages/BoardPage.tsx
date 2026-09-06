@@ -17,6 +17,8 @@ type LoadState =
   | { status: 'error' }
   | { status: 'ready'; board: Board; columns: Column[]; notes: Note[] }
 
+type ReadyState = Extract<LoadState, { status: 'ready' }>
+
 function byPosition(a: { position: number }, b: { position: number }): number {
   return a.position - b.position
 }
@@ -61,6 +63,10 @@ export function BoardPage({ boardId }: { boardId: string }): ReactElement {
     }
   }, [state.status, identity, boardId])
 
+  const patchReady = useCallback((patch: (ready: ReadyState) => ReadyState) => {
+    setState((current) => (current.status === 'ready' ? patch(current) : current))
+  }, [])
+
   const notesByColumn = useMemo(() => {
     const grouped = new Map<string, Note[]>()
     if (state.status === 'ready') {
@@ -95,32 +101,24 @@ export function BoardPage({ boardId }: { boardId: string }): ReactElement {
 
   const handleBoardRename = useCallback(
     async (nextTitle: string) => {
-      setState((current) =>
-        current.status === 'ready'
-          ? { ...current, board: { ...current.board, title: nextTitle } }
-          : current,
-      )
+      patchReady((ready) => ({ ...ready, board: { ...ready.board, title: nextTitle } }))
       try {
         await renameBoard(boardId, nextTitle)
       } catch (cause) {
         console.error(cause)
       }
     },
-    [boardId],
+    [boardId, patchReady],
   )
 
   const handleAddColumn = useCallback(async () => {
     try {
       const column = await addColumn(boardId)
-      setState((current) =>
-        current.status === 'ready'
-          ? { ...current, columns: [...current.columns, column] }
-          : current,
-      )
+      patchReady((ready) => ({ ...ready, columns: [...ready.columns, column] }))
     } catch (cause) {
       console.error(cause)
     }
-  }, [boardId])
+  }, [boardId, patchReady])
 
   const handleAddNote = useCallback(
     async (columnId: string, text: string) => {
@@ -134,48 +132,43 @@ export function BoardPage({ boardId }: { boardId: string }): ReactElement {
           text,
           author: { id: identity.id, name: identity.name },
         })
-        setState((current) =>
-          current.status === 'ready'
-            ? { ...current, notes: [...current.notes, note] }
-            : current,
-        )
+        patchReady((ready) => ({ ...ready, notes: [...ready.notes, note] }))
       } catch (cause) {
         console.error(cause)
       }
     },
-    [boardId, identity],
+    [boardId, identity, patchReady],
   )
 
-  const handleEditNote = useCallback(async (noteId: string, text: string) => {
-    setState((current) =>
-      current.status === 'ready'
-        ? {
-            ...current,
-            notes: current.notes.map((note) =>
-              note.id === noteId ? { ...note, text } : note,
-            ),
-          }
-        : current,
-    )
-    try {
-      await updateNoteText(noteId, text)
-    } catch (cause) {
-      console.error(cause)
-    }
-  }, [])
+  const handleEditNote = useCallback(
+    async (noteId: string, text: string) => {
+      patchReady((ready) => ({
+        ...ready,
+        notes: ready.notes.map((note) => (note.id === noteId ? { ...note, text } : note)),
+      }))
+      try {
+        await updateNoteText(noteId, text)
+      } catch (cause) {
+        console.error(cause)
+      }
+    },
+    [patchReady],
+  )
 
-  const handleDeleteNote = useCallback(async (noteId: string) => {
-    setState((current) =>
-      current.status === 'ready'
-        ? { ...current, notes: current.notes.filter((note) => note.id !== noteId) }
-        : current,
-    )
-    try {
-      await deleteNote(noteId)
-    } catch (cause) {
-      console.error(cause)
-    }
-  }, [])
+  const handleDeleteNote = useCallback(
+    async (noteId: string) => {
+      patchReady((ready) => ({
+        ...ready,
+        notes: ready.notes.filter((note) => note.id !== noteId),
+      }))
+      try {
+        await deleteNote(noteId)
+      } catch (cause) {
+        console.error(cause)
+      }
+    },
+    [patchReady],
+  )
 
   if (state.status === 'loading') {
     return <main className="app-shell">Loading…</main>

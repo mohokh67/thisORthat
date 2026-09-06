@@ -6,7 +6,7 @@
 const KEY = 'thisorthat.recent-boards'
 
 /** How many boards the list keeps before dropping the least recently opened. */
-export const RECENT_LIMIT = 12
+export const RECENT_LIMIT = 13
 
 export interface RecentBoard {
   id: string

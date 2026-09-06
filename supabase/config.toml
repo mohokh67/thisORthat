@@ -1,0 +1,24 @@
+# Minimal Supabase CLI config. Regenerate the full file with `supabase init`
+# if a newer CLI needs more keys. Link to the hosted project with
+# `supabase link --project-ref <ref>` and push migrations with `supabase db push`.
+
+project_id = "thisorthat"
+
+[api]
+enabled = true
+port = 54321
+schemas = ["public"]
+extra_search_path = ["public", "extensions"]
+max_rows = 1000
+
+[db]
+port = 54322
+shadow_port = 54320
+major_version = 15
+
+[studio]
+enabled = true
+port = 54323
+
+[realtime]
+enabled = true

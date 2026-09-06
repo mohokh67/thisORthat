@@ -2,16 +2,19 @@ import { useCallback, useState, type ReactElement } from 'react'
 import { createIdentity, loadIdentity, normalizeName, saveIdentity, type Identity } from '../lib/identity'
 import { navigate } from '../routing/useHashRoute'
 import { useBoard } from '../hooks/useBoard'
+import { usePresence } from '../hooks/usePresence'
 import { NotFoundPage } from './NotFoundPage'
 import { EditableTitle } from '../components/EditableTitle'
 import { IdentityBadge } from '../components/IdentityBadge'
 import { NameModal } from '../components/NameModal'
-import { BoardColumn } from '../components/BoardColumn'
+import { BoardColumns } from '../components/BoardColumns'
+import { PresenceStrip } from '../components/PresenceStrip'
 import { Toasts } from '../components/Toasts'
 
 export function BoardPage({ boardId }: { boardId: string }): ReactElement {
   const [identity, setIdentity] = useState<Identity | null>(() => loadIdentity())
   const board = useBoard(boardId, identity)
+  const presence = usePresence(boardId, identity)
 
   const handleNameSubmit = useCallback((name: string) => {
     const next = createIdentity(name)
@@ -63,6 +66,7 @@ export function BoardPage({ boardId }: { boardId: string }): ReactElement {
       <header className="board-header">
         <EditableTitle value={board.board.title} onCommit={board.renameBoard} />
         <div className="board-header-right">
+          <PresenceStrip participants={presence} />
           {board.connection === 'reconnecting' && (
             <span className="conn-chip">Reconnecting…</span>
           )}
@@ -70,30 +74,7 @@ export function BoardPage({ boardId }: { boardId: string }): ReactElement {
         </div>
       </header>
 
-      {board.columns.length === 0 ? (
-        <div className="board-empty">
-          <p>This board has no columns yet.</p>
-          <button type="button" onClick={board.addColumn}>
-            Add your first column
-          </button>
-        </div>
-      ) : (
-        <div className="columns-row">
-          {board.columns.map((column) => (
-            <BoardColumn
-              key={column.id}
-              column={column}
-              notes={board.notesByColumn.get(column.id) ?? []}
-              onAddNote={board.addNote}
-              onEditNote={board.editNote}
-              onDeleteNote={board.deleteNote}
-            />
-          ))}
-          <button type="button" className="column-add" onClick={board.addColumn}>
-            + Add column
-          </button>
-        </div>
-      )}
+      <BoardColumns board={board} />
 
       <Toasts toasts={board.toasts} />
     </div>

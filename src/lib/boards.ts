@@ -3,12 +3,14 @@ import {
   toBoard,
   toColumn,
   toNote,
+  toVote,
   type BoardRow,
   type ColumnRow,
   type NoteRow,
+  type VoteRow,
 } from './mappers'
 import { templateColumns } from './templates'
-import type { Board, BoardData, Column, TemplateName } from './types'
+import type { Board, BoardData, TemplateName } from './types'
 
 /**
  * Creates a Board with a client-generated id and inserts the Template's seeded
@@ -53,47 +55,24 @@ export async function fetchBoard(id: string): Promise<BoardData | null> {
   if (error) throw error
   if (!board) return null
 
-  const [columnsResult, notesResult] = await Promise.all([
+  const [columnsResult, notesResult, votesResult] = await Promise.all([
     supabase.from('columns').select().eq('board_id', id).order('position', { ascending: true }),
     supabase.from('notes').select().eq('board_id', id).order('position', { ascending: true }),
+    supabase.from('votes').select().eq('board_id', id),
   ])
   if (columnsResult.error) throw columnsResult.error
   if (notesResult.error) throw notesResult.error
+  if (votesResult.error) throw votesResult.error
 
   return {
     board: toBoard(board as BoardRow),
     columns: (columnsResult.data as ColumnRow[]).map(toColumn),
     notes: (notesResult.data as NoteRow[]).map(toNote),
+    votes: (votesResult.data as VoteRow[]).map(toVote),
   }
 }
 
 export async function renameBoard(id: string, title: string): Promise<void> {
   const { error } = await supabase.from('boards').update({ title: title.trim() }).eq('id', id)
   if (error) throw error
-}
-
-/**
- * Inserts a bare Column. The caller supplies the id and position (computed from
- * local state) so the new column can render optimistically. Renaming, colouring,
- * reordering, and deleting Columns arrive in #8.
- */
-export async function addColumn(input: {
-  id: string
-  boardId: string
-  title?: string
-  position: number
-}): Promise<Column> {
-  const { data, error } = await supabase
-    .from('columns')
-    .insert({
-      id: input.id,
-      board_id: input.boardId,
-      title: input.title ?? 'New column',
-      position: input.position,
-    })
-    .select()
-    .single()
-  if (error) throw error
-
-  return toColumn(data as ColumnRow)
 }

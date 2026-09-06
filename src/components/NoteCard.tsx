@@ -6,16 +6,28 @@ import {
   type MouseEvent,
   type ReactElement,
 } from 'react'
-import type { Note } from '../lib/types'
+import type { Note, VoteValue } from '../lib/types'
 import { LinkifiedText } from './LinkifiedText'
 
 interface NoteCardProps {
   note: Note
+  points: number
+  myVote: VoteValue | null
   onEdit: (text: string) => void
+  onCyclePriority: () => void
   onDelete: () => void
+  onVote: (arrow: VoteValue) => void
 }
 
-export function NoteCard({ note, onEdit, onDelete }: NoteCardProps): ReactElement {
+export function NoteCard({
+  note,
+  points,
+  myVote,
+  onEdit,
+  onCyclePriority,
+  onDelete,
+  onVote,
+}: NoteCardProps): ReactElement {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(note.text)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
@@ -91,7 +103,43 @@ export function NoteCard({ note, onEdit, onDelete }: NoteCardProps): ReactElemen
       <div className="note-body" onClick={handleBodyClick}>
         <LinkifiedText text={note.text} />
       </div>
-      <p className="note-author">{note.authorName}</p>
+      <div className="note-footer">
+        <div className="note-meta">
+          <button
+            type="button"
+            className="priority-chip"
+            data-priority={note.priority}
+            aria-label={`Priority ${note.priority}. Click to change.`}
+            onClick={onCyclePriority}
+          >
+            {note.priority === 'none' ? '⚑' : `⚑ ${note.priority}`}
+          </button>
+          <span className="note-author">{note.authorName}</span>
+        </div>
+        <div className="note-votes">
+          <button
+            type="button"
+            className="vote-btn"
+            aria-label="Upvote"
+            aria-pressed={myVote === 1}
+            data-active={myVote === 1 || undefined}
+            onClick={() => onVote(1)}
+          >
+            ▲
+          </button>
+          <span className="vote-points">{points}</span>
+          <button
+            type="button"
+            className="vote-btn"
+            aria-label="Downvote"
+            aria-pressed={myVote === -1}
+            data-active={myVote === -1 || undefined}
+            onClick={() => onVote(-1)}
+          >
+            ▼
+          </button>
+        </div>
+      </div>
     </div>
   )
 }

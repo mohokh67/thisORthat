@@ -1,20 +1,29 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { fetchBoard, renameBoard as renameBoardRow } from '../lib/boards'
 import {
   addColumn as insertColumn,
-  fetchBoard,
-  renameBoard as renameBoardRow,
-} from '../lib/boards'
+  deleteColumn as deleteColumnRow,
+  moveColumn as moveColumnRow,
+  recolorColumn as recolorColumnRow,
+  reindexColumns,
+  renameColumn as renameColumnRow,
+} from '../lib/columns'
 import {
   createNote as insertNote,
   deleteNote as deleteNoteRow,
   updateNoteText,
+  updateNotePriority,
 } from '../lib/notes'
+import { nextPriority } from '../lib/priority'
 import { joinBoard } from '../lib/participants'
-import { positionAtEnd, positionAtStart } from '../lib/position'
+import { planReorder, positionAtEnd, positionAtStart } from '../lib/position'
+import { castVote, clearVote } from '../lib/votes'
+import { points, resolveVote } from '../lib/voteMath'
+import { voteId as makeVoteId } from '../lib/mappers'
 import { reconcile, type BoardEntities } from '../lib/reconcile'
 import { subscribeToBoard, type ConnectionStatus } from '../lib/realtime'
 import type { Identity } from '../lib/identity'
-import type { Board, Column, Note } from '../lib/types'
+import type { Board, Column, ColumnColor, Note, Vote, VoteValue } from '../lib/types'
 import { useToasts, type Toast } from '../components/useToasts'
 
 type Status = 'loading' | 'not-found' | 'error' | 'ready'
@@ -24,23 +33,36 @@ interface State {
   entities: BoardEntities | null
 }
 
+export interface NoteVoteState {
+  points: number
+  mine: VoteValue | null
+}
+
 export interface UseBoard {
   status: Status
   board: Board | null
   columns: Column[]
   notesByColumn: Map<string, Note[]>
+  voteState: Map<string, NoteVoteState>
   connection: ConnectionStatus
   toasts: Toast[]
   addColumn: () => void
+  renameColumn: (columnId: string, title: string) => void
+  recolorColumn: (columnId: string, color: ColumnColor | null) => void
+  moveColumn: (columnId: string, targetIndex: number) => void
+  deleteColumn: (columnId: string) => void
   renameBoard: (title: string) => void
   addNote: (columnId: string, text: string) => void
   editNote: (noteId: string, text: string) => void
+  cyclePriority: (noteId: string) => void
   deleteNote: (noteId: string) => void
+  vote: (noteId: string, arrow: VoteValue) => void
 }
 
 const SAVE_FAILED = "Couldn't save that change. Please try again."
 const EMPTY_COLUMNS: Column[] = []
 const EMPTY_NOTES: Note[] = []
+const EMPTY_VOTES: Vote[] = []
 
 function byPosition(a: { position: number }, b: { position: number }): number {
   return a.position - b.position
@@ -189,6 +211,46 @@ export function useBoard(boardId: string, identity: Identity | null): UseBoard {
     [patch, pushToast, load],
   )
 
+  /** Optimistically merges `changes` into one column and writes them. No-ops if
+   *  the column is gone. */
+  const patchColumn = useCallback(
+    (columnId: string, changes: Partial<Column>, write: () => Promise<unknown>) => {
+      if (!entitiesRef.current?.columns.some((column) => column.id === columnId)) {
+        return
+      }
+      optimisticMutate(
+        (current) => ({
+          ...current,
+          columns: current.columns.map((column) =>
+            column.id === columnId ? { ...column, ...changes } : column,
+          ),
+        }),
+        write,
+      )
+    },
+    [optimisticMutate],
+  )
+
+  /** Optimistically merges `changes` into one note and writes them. No-ops if
+   *  the note is gone. */
+  const patchNote = useCallback(
+    (noteId: string, changes: Partial<Note>, write: () => Promise<unknown>) => {
+      if (!entitiesRef.current?.notes.some((note) => note.id === noteId)) {
+        return
+      }
+      optimisticMutate(
+        (current) => ({
+          ...current,
+          notes: current.notes.map((note) =>
+            note.id === noteId ? { ...note, ...changes } : note,
+          ),
+        }),
+        write,
+      )
+    },
+    [optimisticMutate],
+  )
+
   const addColumn = useCallback(() => {
     const entities = entitiesRef.current
     if (!entities) {
@@ -211,6 +273,82 @@ export function useBoard(boardId: string, identity: Identity | null): UseBoard {
       () => insertColumn({ id, boardId, position: optimistic.position }),
     )
   }, [boardId, optimisticMutate])
+
+  const renameColumn = useCallback(
+    (columnId: string, title: string) => {
+      const existing = entitiesRef.current?.columns.find((column) => column.id === columnId)
+      const trimmed = title.trim()
+      if (!existing || !trimmed || trimmed === existing.title) {
+        return
+      }
+      patchColumn(columnId, { title: trimmed }, () => renameColumnRow(columnId, trimmed))
+    },
+    [patchColumn],
+  )
+
+  const recolorColumn = useCallback(
+    (columnId: string, color: ColumnColor | null) => {
+      const existing = entitiesRef.current?.columns.find((column) => column.id === columnId)
+      if (!existing || existing.color === color) {
+        return
+      }
+      patchColumn(columnId, { color }, () => recolorColumnRow(columnId, color))
+    },
+    [patchColumn],
+  )
+
+  const moveColumn = useCallback(
+    (columnId: string, targetIndex: number) => {
+      const entities = entitiesRef.current
+      if (!entities) {
+        return
+      }
+      const sorted = [...entities.columns]
+        .sort(byPosition)
+        .map((column) => ({ id: column.id, position: column.position }))
+      const plan = planReorder(sorted, columnId, targetIndex)
+      if (!plan) {
+        return
+      }
+      if (plan.kind === 'move') {
+        patchColumn(columnId, { position: plan.position }, () =>
+          moveColumnRow(columnId, plan.position),
+        )
+        return
+      }
+      const positionById = new Map(plan.order.map((entry) => [entry.id, entry.position]))
+      optimisticMutate(
+        (current) => ({
+          ...current,
+          columns: current.columns.map((column) =>
+            positionById.has(column.id)
+              ? { ...column, position: positionById.get(column.id) as number }
+              : column,
+          ),
+        }),
+        () => reindexColumns(plan.order),
+      )
+    },
+    [optimisticMutate, patchColumn],
+  )
+
+  const deleteColumn = useCallback(
+    (columnId: string) => {
+      const existing = entitiesRef.current?.columns.find((column) => column.id === columnId)
+      if (!existing) {
+        return
+      }
+      optimisticMutate(
+        (current) => ({
+          ...current,
+          columns: current.columns.filter((column) => column.id !== columnId),
+          notes: current.notes.filter((note) => note.columnId !== columnId),
+        }),
+        () => deleteColumnRow(columnId),
+      )
+    },
+    [optimisticMutate],
+  )
 
   const renameBoard = useCallback(
     (title: string) => {
@@ -276,24 +414,25 @@ export function useBoard(boardId: string, identity: Identity | null): UseBoard {
   const editNote = useCallback(
     (noteId: string, text: string) => {
       const existing = entitiesRef.current?.notes.find((note) => note.id === noteId)
+      const trimmed = text.trim()
+      if (!existing || !trimmed || trimmed === existing.text) {
+        return
+      }
+      patchNote(noteId, { text: trimmed }, () => updateNoteText(noteId, trimmed))
+    },
+    [patchNote],
+  )
+
+  const cyclePriority = useCallback(
+    (noteId: string) => {
+      const existing = entitiesRef.current?.notes.find((note) => note.id === noteId)
       if (!existing) {
         return
       }
-      const trimmed = text.trim()
-      if (!trimmed || trimmed === existing.text) {
-        return
-      }
-      optimisticMutate(
-        (current) => ({
-          ...current,
-          notes: current.notes.map((note) =>
-            note.id === noteId ? { ...note, text: trimmed } : note,
-          ),
-        }),
-        () => updateNoteText(noteId, trimmed),
-      )
+      const priority = nextPriority(existing.priority)
+      patchNote(noteId, { priority }, () => updateNotePriority(noteId, priority))
     },
-    [optimisticMutate],
+    [patchNote],
   )
 
   const deleteNote = useCallback(
@@ -310,6 +449,48 @@ export function useBoard(boardId: string, identity: Identity | null): UseBoard {
     [optimisticMutate],
   )
 
+  const vote = useCallback(
+    (noteId: string, arrow: VoteValue) => {
+      const entities = entitiesRef.current
+      if (!entities || !identity) {
+        return
+      }
+      const id = makeVoteId(noteId, identity.id)
+      const current = entities.votes.find((v) => v.id === id)
+      const resolution = resolveVote(current?.value ?? null, arrow)
+
+      if (resolution.action === 'clear') {
+        optimisticMutate(
+          (state) => ({ ...state, votes: state.votes.filter((v) => v.id !== id) }),
+          () => clearVote(noteId, identity.id),
+        )
+        return
+      }
+
+      const optimistic: Vote = {
+        id,
+        boardId,
+        noteId,
+        participantId: identity.id,
+        value: resolution.value,
+      }
+      optimisticMutate(
+        (state) => ({
+          ...state,
+          votes: [...state.votes.filter((v) => v.id !== id), optimistic],
+        }),
+        () =>
+          castVote({
+            boardId,
+            noteId,
+            participantId: identity.id,
+            value: resolution.value,
+          }),
+      )
+    },
+    [boardId, identity, optimisticMutate],
+  )
+
   const columns = useMemo(
     () => (state.entities ? [...state.entities.columns].sort(byPosition) : EMPTY_COLUMNS),
     [state.entities],
@@ -318,18 +499,46 @@ export function useBoard(boardId: string, identity: Identity | null): UseBoard {
     () => groupByColumn(state.entities ? state.entities.notes : EMPTY_NOTES),
     [state.entities],
   )
+  const voteState = useMemo(() => {
+    const byNote = new Map<string, Vote[]>()
+    for (const vote of state.entities?.votes ?? EMPTY_VOTES) {
+      const list = byNote.get(vote.noteId)
+      if (list) {
+        list.push(vote)
+      } else {
+        byNote.set(vote.noteId, [vote])
+      }
+    }
+    const result = new Map<string, NoteVoteState>()
+    for (const [noteId, votes] of byNote) {
+      result.set(noteId, {
+        points: points(votes),
+        mine: identity
+          ? (votes.find((vote) => vote.participantId === identity.id)?.value ?? null)
+          : null,
+      })
+    }
+    return result
+  }, [state.entities, identity])
 
   return {
     status: state.status,
     board: state.entities?.board ?? null,
     columns,
     notesByColumn,
+    voteState,
     connection,
     toasts,
     addColumn,
+    renameColumn,
+    recolorColumn,
+    moveColumn,
+    deleteColumn,
     renameBoard,
     addNote,
     editNote,
+    cyclePriority,
     deleteNote,
+    vote,
   }
 }

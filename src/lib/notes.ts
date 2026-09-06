@@ -1,6 +1,6 @@
 import { supabase } from './supabase'
 import { toNote, type NoteRow } from './mappers'
-import type { Note } from './types'
+import type { Note, Priority } from './types'
 
 /**
  * Inserts a Note. The caller supplies the id and position (computed from local
@@ -37,6 +37,11 @@ export async function createNote(input: {
 
 export async function updateNoteText(id: string, text: string): Promise<void> {
   const { error } = await supabase.from('notes').update({ text: text.trim() }).eq('id', id)
+  if (error) throw error
+}
+
+export async function updateNotePriority(id: string, priority: Priority): Promise<void> {
+  const { error } = await supabase.from('notes').update({ priority }).eq('id', id)
   if (error) throw error
 }
 

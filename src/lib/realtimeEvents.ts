@@ -2,15 +2,18 @@ import {
   toBoard,
   toColumn,
   toNote,
+  toVote,
+  voteId,
   type BoardRow,
   type ColumnRow,
   type NoteRow,
+  type VoteRow,
 } from './mappers'
 import type { ChangeEvent } from './reconcile'
 
 export type ConnectionStatus = 'connecting' | 'live' | 'reconnecting'
 
-export type RealtimeTable = 'boards' | 'columns' | 'notes'
+export type RealtimeTable = 'boards' | 'columns' | 'notes' | 'votes'
 
 export interface RawPayload {
   eventType: 'INSERT' | 'UPDATE' | 'DELETE'
@@ -30,6 +33,17 @@ export function toChangeEvent(table: RealtimeTable, payload: RawPayload): Change
       return null
     }
     return { table: 'board', type: 'upsert', row: toBoard(payload.new as unknown as BoardRow) }
+  }
+
+  if (table === 'votes') {
+    if (payload.eventType === 'DELETE') {
+      const noteId = payload.old.note_id
+      const participantId = payload.old.participant_id
+      return typeof noteId === 'string' && typeof participantId === 'string'
+        ? { table: 'votes', type: 'delete', id: voteId(noteId, participantId) }
+        : null
+    }
+    return { table: 'votes', type: 'upsert', row: toVote(payload.new as unknown as VoteRow) }
   }
 
   if (payload.eventType === 'DELETE') {

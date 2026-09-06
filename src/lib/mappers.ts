@@ -1,4 +1,4 @@
-import type { Board, Column, Note, Priority, TemplateName } from './types'
+import type { Board, Column, Note, Priority, TemplateName, Vote, VoteValue } from './types'
 
 export interface BoardRow {
   id: string
@@ -60,4 +60,25 @@ export function toNote(row: NoteRow): Note {
     position: row.position,
     createdAt: row.created_at,
   }
+}
+
+export interface VoteRow {
+  board_id: string
+  note_id: string
+  participant_id: string
+  value: number
+}
+
+export function toVote(row: VoteRow): Vote {
+  return {
+    id: `${row.note_id}:${row.participant_id}`,
+    boardId: row.board_id,
+    noteId: row.note_id,
+    participantId: row.participant_id,
+    value: row.value as VoteValue,
+  }
+}
+
+export function voteId(noteId: string, participantId: string): string {
+  return `${noteId}:${participantId}`
 }

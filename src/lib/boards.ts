@@ -1,4 +1,5 @@
 import { supabase } from './supabase'
+import { positionAtEnd } from './position'
 import { templateColumns } from './templates'
 import { toNote, type NoteRow } from './notes'
 import type { Board, BoardData, Column, TemplateName } from './types'
@@ -115,7 +116,7 @@ export async function addColumn(boardId: string, title = 'New column'): Promise<
     .maybeSingle()
   if (lastError) throw lastError
 
-  const position = (last?.position ?? -1) + 1
+  const position = positionAtEnd(last?.position ?? null)
   const { data, error } = await supabase
     .from('columns')
     .insert({ id: crypto.randomUUID(), board_id: boardId, title, position })

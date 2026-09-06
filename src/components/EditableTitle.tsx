@@ -1,4 +1,4 @@
-import type { KeyboardEvent, ReactElement } from 'react'
+import type { ReactElement } from 'react'
 import { useInlineEditText } from './useInlineEditText'
 
 interface EditableTitleProps {
@@ -6,7 +6,7 @@ interface EditableTitleProps {
   onCommit: (next: string) => void
 }
 
-/** A heading that turns into a text input on click or Enter/Space. */
+/** A level-1 heading whose text is a button that swaps to an input on activate. */
 export function EditableTitle({ value, onCommit }: EditableTitleProps): ReactElement {
   const edit = useInlineEditText(value, onCommit)
 
@@ -17,27 +17,17 @@ export function EditableTitle({ value, onCommit }: EditableTitleProps): ReactEle
         className="editable-title-input"
         type="text"
         maxLength={200}
+        aria-label="Board title"
         {...edit.inputProps}
       />
     )
   }
 
-  function handleKeyDown(event: KeyboardEvent<HTMLHeadingElement>): void {
-    if (event.key === 'Enter' || event.key === ' ') {
-      event.preventDefault()
-      edit.start()
-    }
-  }
-
   return (
-    <h1
-      className="editable-title"
-      tabIndex={0}
-      role="button"
-      onClick={edit.start}
-      onKeyDown={handleKeyDown}
-    >
-      {value}
+    <h1 className="editable-title">
+      <button type="button" className="editable-title-button" onClick={edit.start}>
+        {value}
+      </button>
     </h1>
   )
 }

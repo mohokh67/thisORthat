@@ -11,9 +11,17 @@ export function parseHash(hash: string): Route {
   const path = hash.replace(/^#/, '')
   const match = /^\/b\/([^/]+)\/?$/.exec(path)
   if (match) {
-    return { name: 'board', boardId: decodeURIComponent(match[1]) }
+    return { name: 'board', boardId: safeDecode(match[1]) }
   }
   return { name: 'landing' }
+}
+
+function safeDecode(value: string): string {
+  try {
+    return decodeURIComponent(value)
+  } catch {
+    return value
+  }
 }
 
 export function boardHash(boardId: string): string {

@@ -54,16 +54,10 @@ export function NoteCard({ note, onEdit, onDelete }: NoteCardProps): ReactElemen
     }
   }
 
-  // Clicking a link inside the note should follow the link, not open the editor.
+  // Mouse convenience: click anywhere in the note (but not on a link) to edit.
+  // Keyboard users use the explicit Edit button so links stay reachable.
   function handleBodyClick(event: MouseEvent<HTMLDivElement>): void {
     if (!(event.target as HTMLElement).closest('a')) {
-      startEditing()
-    }
-  }
-
-  function handleBodyKeyDown(event: KeyboardEvent<HTMLDivElement>): void {
-    if (event.key === 'Enter' || event.key === ' ') {
-      event.preventDefault()
       startEditing()
     }
   }
@@ -86,21 +80,15 @@ export function NoteCard({ note, onEdit, onDelete }: NoteCardProps): ReactElemen
 
   return (
     <div className="note">
-      <button
-        type="button"
-        className="note-delete"
-        aria-label="Delete note"
-        onClick={onDelete}
-      >
-        ×
-      </button>
-      <div
-        className="note-body"
-        role="button"
-        tabIndex={0}
-        onClick={handleBodyClick}
-        onKeyDown={handleBodyKeyDown}
-      >
+      <div className="note-actions">
+        <button type="button" className="note-action" aria-label="Edit note" onClick={startEditing}>
+          ✎
+        </button>
+        <button type="button" className="note-action" aria-label="Delete note" onClick={onDelete}>
+          ×
+        </button>
+      </div>
+      <div className="note-body" onClick={handleBodyClick}>
         <LinkifiedText text={note.text} />
       </div>
       <p className="note-author">{note.authorName}</p>

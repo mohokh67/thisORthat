@@ -22,6 +22,10 @@ describe('parseHash', () => {
     expect(parseHash('#/b/a%20b')).toEqual({ name: 'board', boardId: 'a b' })
   })
 
+  it('passes a malformed percent-escape through instead of throwing', () => {
+    expect(parseHash('#/b/a%E0%A4b')).toEqual({ name: 'board', boardId: 'a%E0%A4b' })
+  })
+
   it('falls back to landing for an unknown hash', () => {
     expect(parseHash('#/nonsense/here')).toEqual({ name: 'landing' })
   })

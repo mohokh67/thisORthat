@@ -148,13 +148,17 @@ input[type="text"] {
 .editable-title {
   font-size: 1.25rem;
   margin: 0;
-  cursor: text;
-  border-radius: 4px;
 }
 
-.editable-title:focus-visible {
-  outline: 2px solid var(--accent-blue);
-  outline-offset: 2px;
+.editable-title-button {
+  font: inherit;
+  font-weight: 700;
+  padding: 0.1rem 0.3rem;
+  border: none;
+  background: transparent;
+  color: inherit;
+  cursor: text;
+  border-radius: 4px;
 }
 
 .editable-title-input {
@@ -223,12 +227,6 @@ input[type="text"] {
 
 .note-body {
   cursor: text;
-  border-radius: 4px;
-}
-
-.note-body:focus-visible {
-  outline: 2px solid var(--accent-blue);
-  outline-offset: 2px;
 }
 
 .note-text {
@@ -242,24 +240,30 @@ input[type="text"] {
   color: color-mix(in srgb, currentColor 55%, transparent);
 }
 
-.note-delete {
+.note-actions {
   position: absolute;
-  top: 0.15rem;
-  right: 0.15rem;
-  padding: 0 0.35rem;
+  top: 0.1rem;
+  right: 0.1rem;
+  display: flex;
+  gap: 0.1rem;
+  opacity: 0;
+}
+
+.note:hover .note-actions,
+.note:focus-within .note-actions {
+  opacity: 0.65;
+}
+
+.note-action {
+  padding: 0 0.3rem;
   line-height: 1.4;
   border: none;
   background: transparent;
-  opacity: 0;
-  font-size: 1rem;
+  font-size: 0.95rem;
 }
 
-.note:hover .note-delete,
-.note:focus-within .note-delete {
-  opacity: 0.6;
-}
-
-.note-delete:hover {
+.note-action:hover,
+.note-action:focus-visible {
   opacity: 1;
 }
 

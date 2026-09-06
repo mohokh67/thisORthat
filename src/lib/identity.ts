@@ -31,7 +31,7 @@ export function parseStoredIdentity(raw: string | null): Identity | null {
   }
   try {
     const parsed: unknown = JSON.parse(raw)
-    return isIdentity(parsed) ? { id: parsed.id, name: parsed.name } : null
+    return isIdentity(parsed) ? { id: parsed.id, name: normalizeName(parsed.name) } : null
   } catch {
     return null
   }

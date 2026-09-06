@@ -49,6 +49,12 @@ describe('parseStoredIdentity', () => {
       name: 'Sam',
     })
   })
+
+  it('length-caps a name read from storage', () => {
+    expect(
+      parseStoredIdentity(JSON.stringify({ id: 'abc', name: 'y'.repeat(200) }))?.name,
+    ).toHaveLength(80)
+  })
 })
 
 describe('createIdentity', () => {

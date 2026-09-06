@@ -19,8 +19,23 @@ type LoadState =
 
 type ReadyState = Extract<LoadState, { status: 'ready' }>
 
+const NO_NOTES: Note[] = []
+
 function byPosition(a: { position: number }, b: { position: number }): number {
   return a.position - b.position
+}
+
+function groupByColumn(notes: Note[]): Map<string, Note[]> {
+  const grouped = new Map<string, Note[]>()
+  for (const note of [...notes].sort(byPosition)) {
+    const bucket = grouped.get(note.columnId)
+    if (bucket) {
+      bucket.push(note)
+    } else {
+      grouped.set(note.columnId, [note])
+    }
+  }
+  return grouped
 }
 
 export function BoardPage({ boardId }: { boardId: string }): ReactElement {
@@ -67,20 +82,8 @@ export function BoardPage({ boardId }: { boardId: string }): ReactElement {
     setState((current) => (current.status === 'ready' ? patch(current) : current))
   }, [])
 
-  const notesByColumn = useMemo(() => {
-    const grouped = new Map<string, Note[]>()
-    if (state.status === 'ready') {
-      for (const note of [...state.notes].sort(byPosition)) {
-        const bucket = grouped.get(note.columnId)
-        if (bucket) {
-          bucket.push(note)
-        } else {
-          grouped.set(note.columnId, [note])
-        }
-      }
-    }
-    return grouped
-  }, [state])
+  const notes = state.status === 'ready' ? state.notes : NO_NOTES
+  const notesByColumn = useMemo(() => groupByColumn(notes), [notes])
 
   const handleNameSubmit = useCallback((name: string) => {
     const next = createIdentity(name)
@@ -187,11 +190,24 @@ export function BoardPage({ boardId }: { boardId: string }): ReactElement {
     )
   }
 
+  // No name yet: nothing on the board is reachable until the prompt is answered
+  // (CONTEXT.md: there is no anonymous viewing).
+  if (!identity) {
+    return (
+      <div className="board">
+        <header className="board-header">
+          <h1 className="editable-title">{state.board.title}</h1>
+        </header>
+        <NameModal onSubmit={handleNameSubmit} />
+      </div>
+    )
+  }
+
   return (
     <div className="board">
       <header className="board-header">
         <EditableTitle value={state.board.title} onCommit={handleBoardRename} />
-        {identity && <IdentityBadge name={identity.name} onRename={handleIdentityRename} />}
+        <IdentityBadge name={identity.name} onRename={handleIdentityRename} />
       </header>
 
       {state.columns.length === 0 ? (
@@ -218,8 +234,6 @@ export function BoardPage({ boardId }: { boardId: string }): ReactElement {
           </button>
         </div>
       )}
-
-      {!identity && <NameModal onSubmit={handleNameSubmit} />}
     </div>
   )
 }

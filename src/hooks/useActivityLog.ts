@@ -28,18 +28,30 @@ export function useActivityLog(boardId: string, identity: Identity | null): Acti
     setEvents([])
     setLastSeen(loadLastSeen(boardId))
 
-    fetchRecentEvents(boardId)
-      .then((rows) => {
-        if (active) {
-          setEvents(rows)
-        }
-      })
-      .catch(console.error)
+    const refresh = () => {
+      fetchRecentEvents(boardId)
+        .then((rows) => {
+          if (active) {
+            setEvents(rows)
+          }
+        })
+        .catch(console.error)
+    }
+    refresh()
 
-    const unsubscribe = subscribeToEvents(boardId, (event) => {
-      setEvents((current) =>
-        current.some((existing) => existing.id === event.id) ? current : [event, ...current],
-      )
+    const unsubscribe = subscribeToEvents(boardId, {
+      onInsert: (event) => {
+        setEvents((current) =>
+          current.some((existing) => existing.id === event.id) ? current : [event, ...current],
+        )
+      },
+      // Postgres Changes has no replay: on every (re)connect, refetch to pick up
+      // anything inserted while the channel was down.
+      onStatus: (status) => {
+        if (status === 'live') {
+          refresh()
+        }
+      },
     })
 
     return () => {
@@ -48,13 +60,14 @@ export function useActivityLog(boardId: string, identity: Identity | null): Acti
     }
   }, [boardId])
 
-  const unseenCount = useMemo(
-    () =>
-      events.filter(
-        (event) => event.actorId !== identity?.id && Date.parse(event.createdAt) > lastSeen,
-      ).length,
-    [events, lastSeen, identity],
-  )
+  const unseenCount = useMemo(() => {
+    if (!identity) {
+      return 0
+    }
+    return events.filter(
+      (event) => event.actorId !== identity.id && Date.parse(event.createdAt) > lastSeen,
+    ).length
+  }, [events, lastSeen, identity])
 
   const markSeen = useCallback(() => {
     const now = Date.now()

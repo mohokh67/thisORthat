@@ -74,23 +74,35 @@ export function subscribeToBoard(
   }
 }
 
+interface EventChannelHandlers {
+  onInsert: (event: ActivityEvent) => void
+  onStatus: (status: ConnectionStatus) => void
+}
+
 /**
- * Subscribes to new Activity log rows for one board. The log is append-only, so
- * only INSERTs are forwarded. Returns a teardown function; the topic carries a
- * random suffix for the same reason `subscribeToBoard` does.
+ * Subscribes to new Activity log rows for one board and reports the channel's
+ * connection status. The log is append-only, so only INSERTs are forwarded;
+ * Postgres Changes has no replay, so the caller refetches on every `live`
+ * transition to close the same gap `subscribeToBoard` does. Returns a teardown
+ * function; the topic carries a random suffix for the same reason.
  */
 export function subscribeToEvents(
   boardId: string,
-  onInsert: (event: ActivityEvent) => void,
+  handlers: EventChannelHandlers,
 ): () => void {
   const channel = supabase
     .channel(`events:${boardId}:${crypto.randomUUID()}`)
     .on<EventRow>(
       'postgres_changes',
       { event: 'INSERT', schema: 'public', table: 'events', filter: `board_id=eq.${boardId}` },
-      (payload) => onInsert(toActivityEvent(payload.new as unknown as EventRow)),
+      (payload) => handlers.onInsert(toActivityEvent(payload.new as unknown as EventRow)),
     )
-    .subscribe()
+    .subscribe((status) => {
+      const mapped = toConnectionStatus(status)
+      if (mapped) {
+        handlers.onStatus(mapped)
+      }
+    })
 
   return () => {
     void supabase.removeChannel(channel)

@@ -1,7 +1,9 @@
-import { useEffect, type ReactElement } from 'react'
+import { useEffect, useState, type ReactElement } from 'react'
 import { describeEvent } from '../lib/activity'
 import { relativeTime } from '../lib/relativeTime'
 import type { ActivityEvent } from '../lib/types'
+
+const TICK_MS = 60_000
 
 interface LogDrawerProps {
   events: ActivityEvent[]
@@ -11,6 +13,8 @@ interface LogDrawerProps {
 
 /** Right-side, read-only Activity log. Newest first; updates live while open. */
 export function LogDrawer({ events, open, onClose }: LogDrawerProps): ReactElement | null {
+  const [now, setNow] = useState(() => Date.now())
+
   useEffect(() => {
     if (!open) {
       return
@@ -21,21 +25,25 @@ export function LogDrawer({ events, open, onClose }: LogDrawerProps): ReactEleme
       }
     }
     window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
+    // Keep the relative timestamps fresh while the drawer sits open.
+    setNow(Date.now())
+    const tick = window.setInterval(() => setNow(Date.now()), TICK_MS)
+    return () => {
+      window.removeEventListener('keydown', onKey)
+      window.clearInterval(tick)
+    }
   }, [open, onClose])
 
   if (!open) {
     return null
   }
 
-  const now = Date.now()
-
   return (
     <>
       <div className="drawer-scrim" onClick={onClose} />
       <aside className="log-drawer" aria-label="Activity log">
         <header className="log-drawer-header">
-          <h2>Activity</h2>
+          <h2>Activity log</h2>
           <button
             type="button"
             className="column-tool"

@@ -120,10 +120,14 @@ describe('buildEvent', () => {
     }
   })
 
-  it('produces a detail with no reference to a live row (only primitives)', () => {
-    const built = buildEvent({ kind: 'note-moved', noteId: 'n1', text: 't', fromColumn: 'A', toColumn: 'B' })
-    for (const value of Object.values(built.detail)) {
-      expect(['string', 'number', 'boolean']).toContain(typeof value)
+  it('produces a self-contained detail (only primitives or null) for every kind', () => {
+    for (const { input } of cases) {
+      for (const value of Object.values(buildEvent(input).detail)) {
+        expect(['string', 'number', 'boolean', 'object']).toContain(typeof value)
+        if (typeof value === 'object') {
+          expect(value).toBeNull()
+        }
+      }
     }
   })
 })

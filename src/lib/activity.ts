@@ -48,63 +48,63 @@ export function snippet(text: string): string {
 export function buildEvent(input: ActivityInput): BuiltEvent {
   switch (input.kind) {
     case 'board-renamed':
-      return note('board.renamed', 'board', input.boardId, { from: input.from, to: input.to })
+      return entry('board.renamed', 'board', input.boardId, { from: input.from, to: input.to })
     case 'column-added':
-      return note('column.added', 'column', input.columnId, { title: input.title })
+      return entry('column.added', 'column', input.columnId, { title: input.title })
     case 'column-renamed':
-      return note('column.renamed', 'column', input.columnId, { from: input.from, to: input.to })
+      return entry('column.renamed', 'column', input.columnId, { from: input.from, to: input.to })
     case 'column-recoloured':
-      return note('column.recoloured', 'column', input.columnId, {
+      return entry('column.recoloured', 'column', input.columnId, {
         title: input.title,
         color: input.to,
       })
     case 'column-reordered':
-      return note('column.reordered', 'column', input.columnId, { title: input.title })
+      return entry('column.reordered', 'column', input.columnId, { title: input.title })
     case 'column-deleted':
-      return note('column.deleted', 'column', input.columnId, {
+      return entry('column.deleted', 'column', input.columnId, {
         title: input.title,
         noteCount: input.noteCount,
       })
     case 'note-created':
-      return note('note.created', 'note', input.noteId, {
+      return entry('note.created', 'note', input.noteId, {
         text: snippet(input.text),
         column: input.columnTitle,
       })
     case 'note-edited':
-      return note('note.edited', 'note', input.noteId, { text: snippet(input.text) })
+      return entry('note.edited', 'note', input.noteId, { text: snippet(input.text) })
     case 'note-moved':
-      return note('note.moved', 'note', input.noteId, {
+      return entry('note.moved', 'note', input.noteId, {
         text: snippet(input.text),
         from: input.fromColumn,
         to: input.toColumn,
       })
     case 'note-reprioritised':
-      return note('note.reprioritised', 'note', input.noteId, {
+      return entry('note.reprioritised', 'note', input.noteId, {
         text: snippet(input.text),
         from: input.from,
         to: input.to,
       })
     case 'note-deleted':
-      return note('note.deleted', 'note', input.noteId, {
+      return entry('note.deleted', 'note', input.noteId, {
         text: snippet(input.text),
         column: input.columnTitle,
       })
     case 'vote-cast':
-      return note('vote.cast', 'note', input.noteId, {
+      return entry('vote.cast', 'note', input.noteId, {
         text: snippet(input.text),
         direction: input.direction,
       })
     case 'vote-changed':
-      return note('vote.changed', 'note', input.noteId, {
+      return entry('vote.changed', 'note', input.noteId, {
         text: snippet(input.text),
         direction: input.direction,
       })
     case 'vote-cleared':
-      return note('vote.cleared', 'note', input.noteId, { text: snippet(input.text) })
+      return entry('vote.cleared', 'note', input.noteId, { text: snippet(input.text) })
   }
 }
 
-function note(
+function entry(
   action: string,
   targetType: BuiltEvent['targetType'],
   targetId: string,
@@ -127,42 +127,42 @@ export interface DescribableEvent {
 export function describeEvent(event: DescribableEvent): string {
   const who = event.actorName
   const d = event.detail
-  const text = (key: string): string => String(d[key] ?? '')
+  const field = (key: string): string => String(d[key] ?? '')
 
   switch (event.action) {
     case 'board.renamed':
-      return `${who} renamed the board from "${text('from')}" to "${text('to')}"`
+      return `${who} renamed the board from "${field('from')}" to "${field('to')}"`
     case 'column.added':
-      return `${who} added column "${text('title')}"`
+      return `${who} added column "${field('title')}"`
     case 'column.renamed':
-      return `${who} renamed column "${text('from')}" to "${text('to')}"`
+      return `${who} renamed column "${field('from')}" to "${field('to')}"`
     case 'column.recoloured':
       return d.color
-        ? `${who} recoloured column "${text('title')}" ${text('color')}`
-        : `${who} cleared the colour of column "${text('title')}"`
+        ? `${who} recoloured column "${field('title')}" ${field('color')}`
+        : `${who} cleared the colour of column "${field('title')}"`
     case 'column.reordered':
-      return `${who} reordered column "${text('title')}"`
+      return `${who} reordered column "${field('title')}"`
     case 'column.deleted': {
       const count = Number(d.noteCount ?? 0)
       const tail = count > 0 ? ` and its ${count} note${count === 1 ? '' : 's'}` : ''
-      return `${who} deleted column "${text('title')}"${tail}`
+      return `${who} deleted column "${field('title')}"${tail}`
     }
     case 'note.created':
-      return `${who} added a note to "${text('column')}": "${text('text')}"`
+      return `${who} added a note to "${field('column')}": "${field('text')}"`
     case 'note.edited':
-      return `${who} edited a note: "${text('text')}"`
+      return `${who} edited a note: "${field('text')}"`
     case 'note.moved':
-      return `${who} moved a note from "${text('from')}" to "${text('to')}": "${text('text')}"`
+      return `${who} moved a note from "${field('from')}" to "${field('to')}": "${field('text')}"`
     case 'note.reprioritised':
-      return `${who} changed a note's priority from ${text('from')} to ${text('to')}: "${text('text')}"`
+      return `${who} changed a note's priority from ${field('from')} to ${field('to')}: "${field('text')}"`
     case 'note.deleted':
-      return `${who} deleted a note from "${text('column')}": "${text('text')}"`
+      return `${who} deleted a note from "${field('column')}": "${field('text')}"`
     case 'vote.cast':
-      return `${who} ${d.direction === 'down' ? 'downvoted' : 'upvoted'} a note: "${text('text')}"`
+      return `${who} ${d.direction === 'down' ? 'downvoted' : 'upvoted'} a note: "${field('text')}"`
     case 'vote.changed':
-      return `${who} changed their vote to ${text('direction')} on a note: "${text('text')}"`
+      return `${who} changed their vote to ${field('direction')} on a note: "${field('text')}"`
     case 'vote.cleared':
-      return `${who} cleared their vote on a note: "${text('text')}"`
+      return `${who} cleared their vote on a note: "${field('text')}"`
     default:
       return `${who} changed something`
   }

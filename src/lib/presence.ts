@@ -15,6 +15,8 @@ type SyncListener = (participants: PresenceParticipant[]) => void
 interface Entry {
   channel: RealtimeChannel
   listeners: Set<SyncListener>
+  /** Currently tracked display name; updated when a subscriber renames. */
+  name: string
   stopVisibility: () => void
   teardown?: ReturnType<typeof setTimeout>
 }
@@ -48,11 +50,22 @@ export function subscribeToPresence(
       clearTimeout(entry.teardown)
       entry.teardown = undefined
     }
+    if (entry.name !== identity.name) {
+      entry.name = identity.name
+      if (document.visibilityState === 'visible') {
+        void entry.channel.track({ name: identity.name })
+      }
+    }
   } else {
     const channel = supabase.channel(topic, {
       config: { presence: { key: identity.id } },
     })
-    const created: Entry = { channel, listeners: new Set(), stopVisibility: () => {} }
+    const created: Entry = {
+      channel,
+      listeners: new Set(),
+      name: identity.name,
+      stopVisibility: () => {},
+    }
     entries.set(topic, created)
     entry = created
 
@@ -64,7 +77,7 @@ export function subscribeToPresence(
     }
     const sync = (): void => {
       if (document.visibilityState === 'visible') {
-        void channel.track({ name: identity.name })
+        void channel.track({ name: created.name })
       } else {
         void channel.untrack()
       }
@@ -74,6 +87,9 @@ export function subscribeToPresence(
     channel.subscribe((status) => {
       if (status === 'SUBSCRIBED') {
         sync()
+        // The first `sync` event can land before other viewers have propagated;
+        // re-read shortly after so the strip fills in.
+        setTimeout(emit, 1000)
       }
     })
     document.addEventListener('visibilitychange', sync)

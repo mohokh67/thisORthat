@@ -82,3 +82,17 @@ export interface BoardData {
   notes: Note[]
   votes: Vote[]
 }
+
+/** One entry in the Activity log: an actor, an action, and a self-contained
+ *  `detail` payload sufficient to render the entry after its target is gone. */
+export interface ActivityEvent {
+  id: string
+  boardId: string
+  actorId: string
+  actorName: string
+  action: string
+  targetType: string
+  targetId: string
+  detail: Record<string, unknown>
+  createdAt: string
+}

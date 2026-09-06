@@ -1,4 +1,13 @@
-import type { Board, Column, Note, Priority, TemplateName, Vote, VoteValue } from './types'
+import type {
+  ActivityEvent,
+  Board,
+  Column,
+  Note,
+  Priority,
+  TemplateName,
+  Vote,
+  VoteValue,
+} from './types'
 
 export interface BoardRow {
   id: string
@@ -81,4 +90,30 @@ export function toVote(row: VoteRow): Vote {
 
 export function voteId(noteId: string, participantId: string): string {
   return `${noteId}:${participantId}`
+}
+
+export interface EventRow {
+  id: string
+  board_id: string
+  actor_id: string
+  actor_name: string
+  action: string
+  target_type: string
+  target_id: string
+  detail: Record<string, unknown> | null
+  created_at: string
+}
+
+export function toActivityEvent(row: EventRow): ActivityEvent {
+  return {
+    id: row.id,
+    boardId: row.board_id,
+    actorId: row.actor_id,
+    actorName: row.actor_name,
+    action: row.action,
+    targetType: row.target_type,
+    targetId: row.target_id,
+    detail: row.detail ?? {},
+    createdAt: row.created_at,
+  }
 }

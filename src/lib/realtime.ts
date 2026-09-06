@@ -1,5 +1,5 @@
 import { supabase } from './supabase'
-import type { BoardRow, ColumnRow, NoteRow, VoteRow } from './mappers'
+import { toActivityEvent, type BoardRow, type ColumnRow, type EventRow, type NoteRow, type VoteRow } from './mappers'
 import {
   toChangeEvent,
   toConnectionStatus,
@@ -8,6 +8,7 @@ import {
   type RealtimeTable,
 } from './realtimeEvents'
 import type { ChangeEvent } from './reconcile'
+import type { ActivityEvent } from './types'
 
 export type { ConnectionStatus }
 
@@ -67,6 +68,29 @@ export function subscribeToBoard(
         handlers.onStatus(mapped)
       }
     })
+
+  return () => {
+    void supabase.removeChannel(channel)
+  }
+}
+
+/**
+ * Subscribes to new Activity log rows for one board. The log is append-only, so
+ * only INSERTs are forwarded. Returns a teardown function; the topic carries a
+ * random suffix for the same reason `subscribeToBoard` does.
+ */
+export function subscribeToEvents(
+  boardId: string,
+  onInsert: (event: ActivityEvent) => void,
+): () => void {
+  const channel = supabase
+    .channel(`events:${boardId}:${crypto.randomUUID()}`)
+    .on<EventRow>(
+      'postgres_changes',
+      { event: 'INSERT', schema: 'public', table: 'events', filter: `board_id=eq.${boardId}` },
+      (payload) => onInsert(toActivityEvent(payload.new as unknown as EventRow)),
+    )
+    .subscribe()
 
   return () => {
     void supabase.removeChannel(channel)

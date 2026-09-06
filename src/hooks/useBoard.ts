@@ -23,6 +23,8 @@ import { planInsert, planReorder, positionAtEnd, positionAtStart } from '../lib/
 import { castVote, clearVote } from '../lib/votes'
 import { points, resolveVote } from '../lib/voteMath'
 import { voteId as makeVoteId } from '../lib/mappers'
+import { buildEvent, type ActivityInput } from '../lib/activity'
+import { logEvent } from '../lib/events'
 import { reconcile, type BoardEntities } from '../lib/reconcile'
 import { subscribeToBoard, type ConnectionStatus } from '../lib/realtime'
 import type { Identity } from '../lib/identity'
@@ -201,24 +203,43 @@ export function useBoard(boardId: string, identity: Identity | null): UseBoard {
 
   /** Applies an optimistic change and writes it (retrying once). If the write
    *  ultimately fails, toasts and resyncs from the database rather than applying
-   *  a guessed inverse that could clobber a concurrent edit. */
+   *  a guessed inverse that could clobber a concurrent edit. On success, writes
+   *  the Activity log `event` (best-effort — ADR-0002). */
   const optimisticMutate = useCallback(
-    (apply: (entities: BoardEntities) => BoardEntities, write: () => Promise<unknown>) => {
+    (
+      apply: (entities: BoardEntities) => BoardEntities,
+      write: () => Promise<unknown>,
+      event?: ActivityInput,
+    ) => {
       patch(apply)
       void withRetry(write).then((ok) => {
         if (!ok) {
           pushToast(SAVE_FAILED)
           void load()
+          return
+        }
+        if (event && identity) {
+          void logEvent({
+            boardId,
+            actorId: identity.id,
+            actorName: identity.name,
+            event: buildEvent(event),
+          }).catch(console.error)
         }
       })
     },
-    [patch, pushToast, load],
+    [patch, pushToast, load, boardId, identity],
   )
 
   /** Optimistically merges `changes` into one column and writes them. No-ops if
    *  the column is gone. */
   const patchColumn = useCallback(
-    (columnId: string, changes: Partial<Column>, write: () => Promise<unknown>) => {
+    (
+      columnId: string,
+      changes: Partial<Column>,
+      write: () => Promise<unknown>,
+      event?: ActivityInput,
+    ) => {
       if (!entitiesRef.current?.columns.some((column) => column.id === columnId)) {
         return
       }
@@ -230,6 +251,7 @@ export function useBoard(boardId: string, identity: Identity | null): UseBoard {
           ),
         }),
         write,
+        event,
       )
     },
     [optimisticMutate],
@@ -238,7 +260,12 @@ export function useBoard(boardId: string, identity: Identity | null): UseBoard {
   /** Optimistically merges `changes` into one note and writes them. No-ops if
    *  the note is gone. */
   const patchNote = useCallback(
-    (noteId: string, changes: Partial<Note>, write: () => Promise<unknown>) => {
+    (
+      noteId: string,
+      changes: Partial<Note>,
+      write: () => Promise<unknown>,
+      event?: ActivityInput,
+    ) => {
       if (!entitiesRef.current?.notes.some((note) => note.id === noteId)) {
         return
       }
@@ -250,6 +277,7 @@ export function useBoard(boardId: string, identity: Identity | null): UseBoard {
           ),
         }),
         write,
+        event,
       )
     },
     [optimisticMutate],
@@ -275,6 +303,7 @@ export function useBoard(boardId: string, identity: Identity | null): UseBoard {
     optimisticMutate(
       (current) => ({ ...current, columns: [...current.columns, optimistic] }),
       () => insertColumn({ id, boardId, position: optimistic.position }),
+      { kind: 'column-added', columnId: id, title: optimistic.title },
     )
   }, [boardId, optimisticMutate])
 
@@ -285,7 +314,12 @@ export function useBoard(boardId: string, identity: Identity | null): UseBoard {
       if (!existing || !trimmed || trimmed === existing.title) {
         return
       }
-      patchColumn(columnId, { title: trimmed }, () => renameColumnRow(columnId, trimmed))
+      patchColumn(columnId, { title: trimmed }, () => renameColumnRow(columnId, trimmed), {
+        kind: 'column-renamed',
+        columnId,
+        from: existing.title,
+        to: trimmed,
+      })
     },
     [patchColumn],
   )
@@ -296,7 +330,12 @@ export function useBoard(boardId: string, identity: Identity | null): UseBoard {
       if (!existing || existing.color === color) {
         return
       }
-      patchColumn(columnId, { color }, () => recolorColumnRow(columnId, color))
+      patchColumn(columnId, { color }, () => recolorColumnRow(columnId, color), {
+        kind: 'column-recoloured',
+        columnId,
+        title: existing.title,
+        to: color,
+      })
     },
     [patchColumn],
   )
@@ -307,6 +346,10 @@ export function useBoard(boardId: string, identity: Identity | null): UseBoard {
       if (!entities) {
         return
       }
+      const moved = entities.columns.find((column) => column.id === columnId)
+      if (!moved) {
+        return
+      }
       const sorted = [...entities.columns]
         .sort(byPosition)
         .map((column) => ({ id: column.id, position: column.position }))
@@ -314,9 +357,17 @@ export function useBoard(boardId: string, identity: Identity | null): UseBoard {
       if (!plan) {
         return
       }
+      const event: ActivityInput = {
+        kind: 'column-reordered',
+        columnId,
+        title: moved.title,
+      }
       if (plan.kind === 'move') {
-        patchColumn(columnId, { position: plan.position }, () =>
-          moveColumnRow(columnId, plan.position),
+        patchColumn(
+          columnId,
+          { position: plan.position },
+          () => moveColumnRow(columnId, plan.position),
+          event,
         )
         return
       }
@@ -331,6 +382,7 @@ export function useBoard(boardId: string, identity: Identity | null): UseBoard {
           ),
         }),
         () => reindexColumns(plan.order),
+        event,
       )
     },
     [optimisticMutate, patchColumn],
@@ -338,10 +390,12 @@ export function useBoard(boardId: string, identity: Identity | null): UseBoard {
 
   const deleteColumn = useCallback(
     (columnId: string) => {
-      const existing = entitiesRef.current?.columns.find((column) => column.id === columnId)
-      if (!existing) {
+      const entities = entitiesRef.current
+      const existing = entities?.columns.find((column) => column.id === columnId)
+      if (!entities || !existing) {
         return
       }
+      const noteCount = entities.notes.filter((note) => note.columnId === columnId).length
       optimisticMutate(
         (current) => ({
           ...current,
@@ -349,6 +403,7 @@ export function useBoard(boardId: string, identity: Identity | null): UseBoard {
           notes: current.notes.filter((note) => note.columnId !== columnId),
         }),
         () => deleteColumnRow(columnId),
+        { kind: 'column-deleted', columnId, title: existing.title, noteCount },
       )
     },
     [optimisticMutate],
@@ -367,6 +422,7 @@ export function useBoard(boardId: string, identity: Identity | null): UseBoard {
       optimisticMutate(
         (current) => ({ ...current, board: { ...current.board, title: trimmed } }),
         () => renameBoardRow(boardId, trimmed),
+        { kind: 'board-renamed', boardId, from: entities.board.title, to: trimmed },
       )
     },
     [boardId, optimisticMutate],
@@ -383,6 +439,8 @@ export function useBoard(boardId: string, identity: Identity | null): UseBoard {
         return
       }
       const id = crypto.randomUUID()
+      const columnTitle =
+        entities.columns.find((column) => column.id === columnId)?.title ?? ''
       const columnNotes = entities.notes.filter((note) => note.columnId === columnId)
       const firstPosition = columnNotes.length
         ? Math.min(...columnNotes.map((note) => note.position))
@@ -410,6 +468,7 @@ export function useBoard(boardId: string, identity: Identity | null): UseBoard {
             authorName: identity.name,
             position: optimistic.position,
           }),
+        { kind: 'note-created', noteId: id, text: trimmed, columnTitle },
       )
     },
     [boardId, identity, optimisticMutate],
@@ -422,7 +481,11 @@ export function useBoard(boardId: string, identity: Identity | null): UseBoard {
       if (!existing || !trimmed || trimmed === existing.text) {
         return
       }
-      patchNote(noteId, { text: trimmed }, () => updateNoteText(noteId, trimmed))
+      patchNote(noteId, { text: trimmed }, () => updateNoteText(noteId, trimmed), {
+        kind: 'note-edited',
+        noteId,
+        text: trimmed,
+      })
     },
     [patchNote],
   )
@@ -434,20 +497,30 @@ export function useBoard(boardId: string, identity: Identity | null): UseBoard {
         return
       }
       const priority = nextPriority(existing.priority)
-      patchNote(noteId, { priority }, () => updateNotePriority(noteId, priority))
+      patchNote(noteId, { priority }, () => updateNotePriority(noteId, priority), {
+        kind: 'note-reprioritised',
+        noteId,
+        text: existing.text,
+        from: existing.priority,
+        to: priority,
+      })
     },
     [patchNote],
   )
 
   const deleteNote = useCallback(
     (noteId: string) => {
-      const removed = entitiesRef.current?.notes.find((note) => note.id === noteId)
-      if (!removed) {
+      const entities = entitiesRef.current
+      const removed = entities?.notes.find((note) => note.id === noteId)
+      if (!entities || !removed) {
         return
       }
+      const columnTitle =
+        entities.columns.find((column) => column.id === removed.columnId)?.title ?? ''
       optimisticMutate(
         (current) => ({ ...current, notes: current.notes.filter((n) => n.id !== noteId) }),
         () => deleteNoteRow(noteId),
+        { kind: 'note-deleted', noteId, text: removed.text, columnTitle },
       )
     },
     [optimisticMutate],
@@ -484,14 +557,30 @@ export function useBoard(boardId: string, identity: Identity | null): UseBoard {
         return
       }
 
-      // A cross-column move also carries the note's new `columnId`.
+      // A cross-column move also carries the note's new `columnId` and is the
+      // only kind logged — a pure within-column nudge is not (ADR / #13).
       const relocate = sameColumn ? {} : { columnId: toColumnId }
+      const titleOf = (columnId: string) =>
+        entities.columns.find((column) => column.id === columnId)?.title ?? ''
+      const event: ActivityInput | undefined = sameColumn
+        ? undefined
+        : {
+            kind: 'note-moved',
+            noteId,
+            text: note.text,
+            fromColumn: titleOf(note.columnId),
+            toColumn: titleOf(toColumnId),
+          }
 
       if (plan.kind === 'move') {
-        patchNote(noteId, { ...relocate, position: plan.position }, () =>
-          sameColumn
-            ? updateNotePosition(noteId, plan.position)
-            : moveNoteToColumn(noteId, toColumnId, plan.position),
+        patchNote(
+          noteId,
+          { ...relocate, position: plan.position },
+          () =>
+            sameColumn
+              ? updateNotePosition(noteId, plan.position)
+              : moveNoteToColumn(noteId, toColumnId, plan.position),
+          event,
         )
         return
       }
@@ -516,6 +605,7 @@ export function useBoard(boardId: string, identity: Identity | null): UseBoard {
               await moveNoteToColumn(noteId, toColumnId, movedPosition)
               await reindexNotes(plan.order.filter((entry) => entry.id !== noteId))
             },
+        event,
       )
     },
     [optimisticMutate, patchNote],
@@ -530,11 +620,13 @@ export function useBoard(boardId: string, identity: Identity | null): UseBoard {
       const id = makeVoteId(noteId, identity.id)
       const current = entities.votes.find((v) => v.id === id)
       const resolution = resolveVote(current?.value ?? null, arrow)
+      const noteText = entities.notes.find((n) => n.id === noteId)?.text ?? ''
 
       if (resolution.action === 'clear') {
         optimisticMutate(
           (state) => ({ ...state, votes: state.votes.filter((v) => v.id !== id) }),
           () => clearVote(noteId, identity.id),
+          { kind: 'vote-cleared', noteId, text: noteText },
         )
         return
       }
@@ -558,6 +650,12 @@ export function useBoard(boardId: string, identity: Identity | null): UseBoard {
             participantId: identity.id,
             value: resolution.value,
           }),
+        {
+          kind: current ? 'vote-changed' : 'vote-cast',
+          noteId,
+          text: noteText,
+          direction: resolution.value === 1 ? 'up' : 'down',
+        },
       )
     },
     [boardId, identity, optimisticMutate],

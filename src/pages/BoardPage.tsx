@@ -23,6 +23,7 @@ import { IdentityBadge } from '../components/IdentityBadge'
 import { NameModal } from '../components/NameModal'
 import { BoardColumns } from '../components/BoardColumns'
 import { PresenceStrip } from '../components/PresenceStrip'
+import { ThemeToggle } from '../components/ThemeToggle'
 import { LogDrawer } from '../components/LogDrawer'
 import { Toasts } from '../components/Toasts'
 
@@ -195,6 +196,7 @@ export function BoardPage({ boardId }: { boardId: string }): ReactElement {
       <header className="board-header">
         <EditableTitle value={board.board.title} onCommit={board.renameBoard} />
         <div className="board-header-right">
+          <ThemeToggle />
           <PresenceStrip participants={presence} />
           {board.connection === 'reconnecting' && (
             <span className="conn-chip">Reconnecting…</span>

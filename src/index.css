@@ -11,6 +11,18 @@
   --accent-purple: #8b5cd6;
 }
 
+/* Per-device theme override (src/lib/theme.ts). The whole palette derives from
+   the CSS system colours, so pinning `color-scheme` flips the entire app.
+   Note: `color-scheme` does not beat `@media (prefers-color-scheme)` — don't
+   add such blocks or the toggle silently half-breaks. */
+:root[data-theme="light"] {
+  color-scheme: light;
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+}
+
 * {
   box-sizing: border-box;
 }
@@ -300,6 +312,12 @@ input[type="text"] {
   white-space: nowrap;
 }
 
+.theme-toggle {
+  font-size: 0.95rem;
+  line-height: 1;
+  padding: 0.3rem 0.5rem;
+}
+
 .export-menu {
   position: relative;
 }
@@ -506,6 +524,11 @@ input[type="text"] {
 
 .column-sort {
   padding: 0 0.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.5rem;
 }
 
 .column-sort-label {
@@ -718,12 +741,13 @@ button.danger {
   font-variant-numeric: tabular-nums;
 }
 
+/* Own row at the top of the card so long first lines never collide with the
+   controls. Space is reserved even while hidden (opacity, not display). */
 .note-actions {
-  position: absolute;
-  top: 0.1rem;
-  right: 0.1rem;
   display: flex;
+  justify-content: flex-end;
   gap: 0.1rem;
+  margin-bottom: 0.2rem;
   opacity: 0;
 }
 
@@ -757,9 +781,14 @@ button.danger {
 }
 
 .note-composer-open {
-  align-self: flex-start;
-  font-size: 0.85rem;
-  padding: 0.3rem 0.55rem;
+  font-size: 0.75rem;
+  padding: 0.15rem 0.45rem;
+  white-space: nowrap;
+}
+
+/* When the composer expands it drops to its own full-width line under Sort. */
+.column-sort .note-textarea {
+  flex: 1 1 100%;
 }
 
 /* Toasts */
@@ -835,7 +864,9 @@ button.danger {
 
   .vote-btn,
   .column-tool,
-  .column-drag {
+  .column-drag,
+  .theme-toggle,
+  .note-composer-open {
     min-width: 2.5rem;
     min-height: 2.5rem;
   }

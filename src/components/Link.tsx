@@ -14,14 +14,9 @@ type LinkProps = {
 export function Link({ to, children, onClick, ...rest }: LinkProps): ReactElement {
   function handleClick(event: MouseEvent<HTMLAnchorElement>): void {
     onClick?.(event)
-    if (
-      event.defaultPrevented ||
-      event.button !== 0 ||
-      event.metaKey ||
-      event.ctrlKey ||
-      event.shiftKey ||
-      event.altKey
-    ) {
+    const opensElsewhere =
+      event.metaKey || event.ctrlKey || event.shiftKey || event.altKey
+    if (event.defaultPrevented || opensElsewhere) {
       return
     }
     event.preventDefault()

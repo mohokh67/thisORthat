@@ -117,10 +117,49 @@ input[type="text"] {
   border-bottom: 1px solid color-mix(in srgb, currentColor 15%, transparent);
 }
 
+.board-header-left {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  min-width: 0;
+}
+
+.board-heading {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  min-width: 0;
+}
+
+.board-timestamps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.15rem 0.75rem;
+  margin: 0;
+  font-size: 0.75rem;
+  color: color-mix(in srgb, currentColor 55%, transparent);
+}
+
 .board-header-right {
   display: flex;
   align-items: center;
   gap: 0.6rem;
+}
+
+.home-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  padding: 0.3rem;
+  border: 1px solid color-mix(in srgb, currentColor 30%, transparent);
+  border-radius: 6px;
+  background: color-mix(in srgb, currentColor 8%, transparent);
+  color: inherit;
+}
+
+.home-link:hover {
+  background: color-mix(in srgb, currentColor 16%, transparent);
 }
 
 .presence-strip {
@@ -866,6 +905,7 @@ button.danger {
   .column-tool,
   .column-drag,
   .theme-toggle,
+  .home-link,
   .note-composer-open {
     min-width: 2.5rem;
     min-height: 2.5rem;

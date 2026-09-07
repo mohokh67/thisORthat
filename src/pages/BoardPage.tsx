@@ -22,6 +22,8 @@ import { ExportMenu, type ExportFormat } from '../components/ExportMenu'
 import { IdentityBadge } from '../components/IdentityBadge'
 import { NameModal } from '../components/NameModal'
 import { BoardColumns } from '../components/BoardColumns'
+import { BoardTimestamps } from '../components/BoardTimestamps'
+import { HomeLink } from '../components/HomeLink'
 import { PresenceStrip } from '../components/PresenceStrip'
 import { ThemeToggle } from '../components/ThemeToggle'
 import { LogDrawer } from '../components/LogDrawer'
@@ -37,6 +39,10 @@ export function BoardPage({ boardId }: { boardId: string }): ReactElement {
     identity,
   )
   const [logOpen, setLogOpen] = useState(false)
+  // Snapshot on mount, matching how LandingPage renders relative times.
+  const [now] = useState(() => Date.now())
+  // "Updated" is the newest activity-log entry; null until the board has one.
+  const lastActivityAt = events[0]?.createdAt ?? null
   const { pushToast } = board
   // Guards against overlapping whole-history export walks on rapid clicks.
   const exportingRef = useRef(false)
@@ -184,7 +190,17 @@ export function BoardPage({ boardId }: { boardId: string }): ReactElement {
     return (
       <div className="board">
         <header className="board-header">
-          <h1 className="editable-title">{board.board.title}</h1>
+          <div className="board-header-left">
+            <HomeLink />
+            <div className="board-heading">
+              <h1 className="editable-title">{board.board.title}</h1>
+              <BoardTimestamps
+                createdAt={board.board.createdAt}
+                updatedAt={lastActivityAt}
+                now={now}
+              />
+            </div>
+          </div>
         </header>
         <NameModal onSubmit={handleNameSubmit} />
       </div>
@@ -194,7 +210,17 @@ export function BoardPage({ boardId }: { boardId: string }): ReactElement {
   return (
     <div className="board">
       <header className="board-header">
-        <EditableTitle value={board.board.title} onCommit={board.renameBoard} />
+        <div className="board-header-left">
+          <HomeLink />
+          <div className="board-heading">
+            <EditableTitle value={board.board.title} onCommit={board.renameBoard} />
+            <BoardTimestamps
+              createdAt={board.board.createdAt}
+              updatedAt={lastActivityAt}
+              now={now}
+            />
+          </div>
+        </div>
         <div className="board-header-right">
           <ThemeToggle />
           <PresenceStrip participants={presence} />

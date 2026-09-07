@@ -5,6 +5,16 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <link rel="icon" href="data:," />
     <title>thisORthat</title>
+    <script>
+      // Apply a saved theme override before first paint so the page never
+      // flashes the wrong one. With no stored choice we set nothing: bare
+      // `:root { color-scheme: light dark }` already follows the OS (live, even
+      // after load) with no flash. Keep the key in sync with src/lib/theme.ts.
+      try {
+        var t = localStorage.getItem('thisorthat.theme')
+        if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t
+      } catch (e) {}
+    </script>
   </head>
   <body>
     <div id="root"></div>

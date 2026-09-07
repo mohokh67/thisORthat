@@ -72,8 +72,24 @@ Or do it by hand: add `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` as
 repository secrets (Settings → Secrets and variables → Actions), and set
 Settings → Pages → Build and deployment → Source to **GitHub Actions**.
 
-The site is served at the root of the custom domain
-**https://thisorthat.koolstuff.app**, so `vite.config.ts` sets `base: '/'` and
-`public/CNAME` carries the domain into the deploy artifact. Point a DNS `CNAME`
-record for `thisorthat` at `mohokh67.github.io`, then set the same domain under
-Settings → Pages → Custom domain.
+### Custom domain
+
+The site is served at the root of **https://thisorthat.koolstuff.app**, so
+`vite.config.ts` sets `base: '/'` and `public/CNAME` carries the domain into the
+deploy artifact (GitHub keeps the Pages custom domain bound on every deploy).
+
+DNS lives in Cloudflare: a `CNAME` record, name `thisorthat`, target
+`mohokh67.github.io`, proxy status **DNS only** (grey cloud) so GitHub can
+validate the domain and issue the TLS certificate. `.app` is HSTS-preloaded, so
+the domain will not load at all until that certificate is issued (minutes to
+about an hour after the DNS check passes). Once it is, tick Settings → Pages →
+**Enforce HTTPS**.
+
+### Client-side routing
+
+Routing uses the History API (`src/routing/`), so board URLs are real paths
+(`/b/<id>`), not `#/b/<id>`. GitHub Pages has no file at those paths, so the
+`spa-fallback-404` plugin in `vite.config.ts` copies `dist/index.html` to
+`dist/404.html`; Pages serves that for any unmatched path and the app re-routes
+from `location.pathname`. Links shared in the old hash form load the landing
+page.

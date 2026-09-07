@@ -1,5 +1,5 @@
 import type { ReactElement } from 'react'
-import { navigate } from '../routing/useHashRoute'
+import { navigate } from '../routing/useRoute'
 
 export function NotFoundPage(): ReactElement {
   return (
@@ -8,7 +8,7 @@ export function NotFoundPage(): ReactElement {
       <p className="muted">
         This link doesn&rsquo;t point at a board. It may have been mistyped.
       </p>
-      <button type="button" onClick={() => navigate('#/')}>
+      <button type="button" onClick={() => navigate('/')}>
         Back to start
       </button>
     </main>

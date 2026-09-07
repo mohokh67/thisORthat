@@ -4,8 +4,9 @@ import { loadRecentBoards } from '../lib/recentBoards'
 import { relativeTime } from '../lib/relativeTime'
 import { TEMPLATE_CHOICES } from '../lib/templates'
 import type { TemplateName } from '../lib/types'
-import { boardHash } from '../routing/parseHash'
-import { navigate } from '../routing/useHashRoute'
+import { Link } from '../components/Link'
+import { boardPath } from '../routing/parsePath'
+import { navigate } from '../routing/useRoute'
 
 export function LandingPage(): ReactElement {
   const [title, setTitle] = useState('')
@@ -26,7 +27,7 @@ export function LandingPage(): ReactElement {
     setError(null)
     try {
       const board = await createBoard({ title: trimmedTitle, template })
-      navigate(boardHash(board.id))
+      navigate(boardPath(board.id))
     } catch (cause) {
       setError('Could not create the board. Check your connection and try again.')
       setSubmitting(false)
@@ -83,7 +84,7 @@ export function LandingPage(): ReactElement {
           <ul className="recent-list">
             {recent.map((entry) => (
               <li key={entry.id}>
-                <a href={boardHash(entry.id)}>{entry.title}</a>
+                <Link to={boardPath(entry.id)}>{entry.title}</Link>
                 <span className="recent-time">
                   {relativeTime(new Date(entry.lastOpened).toISOString(), now)}
                 </span>

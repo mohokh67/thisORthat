@@ -33,8 +33,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
         <button
           type="button"
           onClick={() => {
-            window.location.hash = '#/'
-            window.location.reload()
+            window.location.href = '/'
           }}
         >
           Back to start

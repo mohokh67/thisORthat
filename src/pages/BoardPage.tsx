@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type ReactElement } from 'react'
 import { createIdentity, loadIdentity, normalizeName, saveIdentity, type Identity } from '../lib/identity'
-import { navigate } from '../routing/useHashRoute'
+import { navigate } from '../routing/useRoute'
 import { useBoard } from '../hooks/useBoard'
 import { usePresence } from '../hooks/usePresence'
 import { useSortLenses } from '../hooks/useSortLenses'
@@ -179,7 +179,7 @@ export function BoardPage({ boardId }: { boardId: string }): ReactElement {
     return (
       <main className="app-shell">
         <p className="error">Could not load this board.</p>
-        <button type="button" onClick={() => navigate('#/')}>
+        <button type="button" onClick={() => navigate('/')}>
           Back to start
         </button>
       </main>

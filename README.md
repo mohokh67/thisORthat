@@ -22,7 +22,7 @@ scope lives in GitHub issue #2, broken into tickets #3–#17.
 ```bash
 npm install
 cp .env.example .env      # then fill in your Supabase URL + anon key
-npm run dev               # http://localhost:5173/thisORthat/
+npm run dev               # http://localhost:5173/
 ```
 
 | Command | Does |
@@ -72,5 +72,8 @@ Or do it by hand: add `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` as
 repository secrets (Settings → Secrets and variables → Actions), and set
 Settings → Pages → Build and deployment → Source to **GitHub Actions**.
 
-The site is served from a project path, so `vite.config.ts` sets
-`base: '/thisORthat/'`. Change it if you attach a custom domain.
+The site is served at the root of the custom domain
+**https://thisorthat.koolstuff.app**, so `vite.config.ts` sets `base: '/'` and
+`public/CNAME` carries the domain into the deploy artifact. Point a DNS `CNAME`
+record for `thisorthat` at `mohokh67.github.io`, then set the same domain under
+Settings → Pages → Custom domain.

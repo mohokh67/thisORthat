@@ -2,10 +2,10 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 
-// Hosted at https://<user>.github.io/thisORthat/ (project-path GitHub Pages).
-// Revisit `base` if a custom domain is attached later.
+// Served at the root of a custom domain (https://thisorthat.koolstuff.app) via
+// GitHub Pages. `public/CNAME` carries the domain into the deploy artifact.
 export default defineConfig({
-  base: '/thisORthat/',
+  base: '/',
   plugins: [react()],
   test: {
     environment: 'node',

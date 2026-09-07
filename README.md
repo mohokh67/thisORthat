@@ -1,5 +1,7 @@
 # thisORthat
 
+**Live:** <https://thisorthat.koolstuff.app>
+
 A shared, real-time board for collecting short items into columns and voting on
 them. Built for retrospectives and similar "collect, discuss, prioritise"
 sessions. Anyone holding a board's link can read and change everything on it: no
@@ -74,7 +76,7 @@ Settings → Pages → Build and deployment → Source to **GitHub Actions**.
 
 ### Custom domain
 
-The site is served at the root of **https://thisorthat.koolstuff.app**, so
+The site is served at the root of <https://thisorthat.koolstuff.app>, so
 `vite.config.ts` sets `base: '/'` and `public/CNAME` carries the domain into the
 deploy artifact (GitHub keeps the Pages custom domain bound on every deploy).
 
